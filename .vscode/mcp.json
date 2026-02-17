@@ -1,0 +1,24 @@
+{
+    "servers": {
+        "supabase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@supabase/mcp-server-supabase@latest",
+                "--project-ref=ycmopmnrhrpnnzkvnihr"
+            ]
+        },
+        "stitch": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "mcp-remote",
+                "https://stitch.googleapis.com/mcp",
+                "--header",
+                "Accept: application/json",
+                "--header",
+                "X-Goog-Api-Key: AQ.Ab8RN6LwIW6FSOxILi0B9yocfThmJVjPD9R1hw0vc4hwVza1OQ"
+            ]
+        }
+    }
+}

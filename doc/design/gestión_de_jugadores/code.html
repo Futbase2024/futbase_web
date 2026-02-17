@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestión de Jugadores - FutBase</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,FILL@0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1d5d54", // Exact logo green extracted
+                        "primary-hover": "#164a43",
+                        "accent-light": "#e8f0ef",
+                        "background-main": "#ffffff",
+                        "background-alt": "#f8fafc",
+                        "text-dark": "#0f172a",
+                        "text-muted": "#64748b",
+                        "border-color": "#e2e8f0"
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: var(--background-alt);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1d5d54;
+        }
+    </style>
+</head>
+<body class="bg-background-alt text-text-dark min-h-screen flex flex-col">
+<header class="sticky top-0 z-50 w-full border-b border-border-color bg-white/95 backdrop-blur-md px-6 py-3">
+<div class="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2">
+<div class="size-9 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined font-bold">sports_soccer</span>
+</div>
+<h1 class="text-xl font-extrabold tracking-tight text-primary">FutBase</h1>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-semibold text-text-muted hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-bold text-primary border-b-2 border-primary pb-1" href="#">Jugadores</a>
+<a class="text-sm font-semibold text-text-muted hover:text-primary transition-colors" href="#">Equipos</a>
+<a class="text-sm font-semibold text-text-muted hover:text-primary transition-colors" href="#">Pagos</a>
+</nav>
+</div>
+<div class="flex-1 max-w-md hidden lg:block">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">search</span>
+<input class="w-full bg-slate-100 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 text-text-dark placeholder:text-text-muted" placeholder="Buscar jugadores por nombre, DNI o club..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-lg text-text-muted hover:bg-slate-100 transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-lg text-text-muted hover:bg-slate-100 transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-border-color mx-1"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-text-dark">Panel Admin</p>
+<p class="text-[10px] text-text-muted leading-none">Gestión Pro</p>
+</div>
+<div class="size-10 rounded-full border-2 border-primary/20 p-0.5 overflow-hidden">
+<img class="w-full h-full object-cover rounded-full" data-alt="Profile avatar for administrator" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAThqzYYzVXvxAo7vsYKfavGFc5tG5jRZ3rFrY3Mxt_bAoBQU4hiJDhNGqWb4ksh7xAlS7RkjAu7xRIXO7aCQk5ouGQLE7AuGtkuhGOS9udXZ_mfjNpzSGU37DHBlo9yGY7GYWOLpgXOEBYt0AmkAppjYIu1RFgScK-TEMK3uJSzznYMbA-vBa9c37lZ-V9bhz4FZ9k5KWFEw8JwO9JIFLm6F3f_CN_QmpzLQHcMeJYTABv5Qx1PvyJf2wGQ3mat9SvgZAttm2yxw"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 flex max-w-[1600px] mx-auto w-full p-6 gap-6 overflow-hidden">
+<aside class="w-72 hidden xl:flex flex-col gap-6 shrink-0">
+<div class="bg-white border border-border-color rounded-xl p-5 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h2 class="font-bold text-xs uppercase tracking-widest text-primary">Filtros Avanzados</h2>
+<span class="material-symbols-outlined text-primary/60 cursor-pointer hover:text-primary transition-colors">filter_alt</span>
+</div>
+<div class="space-y-6">
+<div>
+<p class="text-xs font-bold text-text-dark mb-3">Categorías</p>
+<div class="space-y-2.5">
+<label class="flex items-center gap-3 group cursor-pointer">
+<input checked="" class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Todos los grupos</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Sub-15</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Sub-17</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Senior</span>
+</label>
+</div>
+</div>
+<div class="h-[1px] bg-border-color"></div>
+<div>
+<p class="text-xs font-bold text-text-dark mb-3">Estado de Pago</p>
+<div class="space-y-2.5">
+<label class="flex items-center gap-3 group cursor-pointer">
+<input checked="" class="w-4 h-4 border-slate-300 text-primary focus:ring-primary" name="payment" type="radio"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Cualquiera</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input class="w-4 h-4 border-slate-300 text-primary focus:ring-primary" name="payment" type="radio"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Al día</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input class="w-4 h-4 border-slate-300 text-primary focus:ring-primary" name="payment" type="radio"/>
+<span class="text-sm text-text-muted group-hover:text-primary transition-colors">Pendiente</span>
+</label>
+</div>
+</div>
+<div class="h-[1px] bg-border-color"></div>
+<div>
+<p class="text-xs font-bold text-text-dark mb-3">Posición</p>
+<div class="grid grid-cols-2 gap-2">
+<button class="px-3 py-2 rounded-lg bg-slate-50 text-xs font-medium text-text-muted border border-slate-200 hover:border-primary hover:text-primary transition-all">Portero</button>
+<button class="px-3 py-2 rounded-lg bg-slate-50 text-xs font-medium text-text-muted border border-slate-200 hover:border-primary hover:text-primary transition-all">Defensa</button>
+<button class="px-3 py-2 rounded-lg bg-slate-50 text-xs font-medium text-text-muted border border-slate-200 hover:border-primary hover:text-primary transition-all">Medio</button>
+<button class="px-3 py-2 rounded-lg bg-slate-50 text-xs font-medium text-text-muted border border-slate-200 hover:border-primary hover:text-primary transition-all">Delantero</button>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 bg-slate-100 text-text-dark py-2.5 rounded-lg text-sm font-bold hover:bg-slate-200 transition-all">
+                Limpiar Filtros
+            </button>
+</div>
+<div class="bg-primary rounded-xl p-5 text-white shadow-lg shadow-primary/20">
+<h3 class="text-xs font-bold text-white/70 uppercase mb-4 tracking-wider">Resumen Semanal</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm text-white/80">Nuevos Registros</span>
+<span class="text-lg font-bold">12</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-white/80">Cobros Pendientes</span>
+<span class="text-lg font-bold text-orange-300">8</span>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-white/10 text-center">
+<a class="text-[10px] font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors" href="#">Ver informe completo</a>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col gap-6 overflow-hidden">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<nav class="flex items-center gap-2 text-[11px] text-text-muted mb-1 font-bold uppercase tracking-wider">
+<a class="hover:text-primary transition-colors" href="#">FutBase</a>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-primary">Gestión de Jugadores</span>
+</nav>
+<h2 class="text-3xl font-black text-primary leading-tight tracking-tight">Directorio de Jugadores</h2>
+<p class="text-text-muted text-sm mt-1">Visualiza y administra los perfiles de todos los atletas registrados.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 bg-white border border-border-color text-text-dark px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-sm text-primary">download</span>
+                    Exportar CSV
+                </button>
+<button class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">person_add</span>
+                    Registrar Jugador
+                </button>
+</div>
+</div>
+<div class="bg-white border border-border-color rounded-xl shadow-sm flex flex-col flex-1 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-primary text-white">
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest">Jugador</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest">Categoría</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest">Posición</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest">Último Pago</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-center">Estado</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-accent-light/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg overflow-hidden border border-slate-200">
+<img class="w-full h-full object-cover" data-alt="Action portrait of player Mateo G." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlh_NohV4jqbn_9N-XKB-a6eiVh5lMumI0DdXrPs0sRZHlLRzx1GVRBTA6v-NdlvcNr03NWNSipjMu5JDDYShEbfd6Hac4gVEvFMD8UxAbco0kWh6AmFRia9VQtkgDWX5u4TuWktKR1MheMAW-Mcw4bej_wimUnZzJg9pTAdTViHUca0ONrP65G4f8cuGkZsqpsBbJwlhnWydod9a88OyFXyxyrMU41zi-FcgGoPlw1c9UmXFoDJcsmL4kyuO6si2R1nxk3J6ZGw"/>
+</div>
+<div>
+<p class="text-sm font-bold group-hover:text-primary transition-colors text-text-dark">Mateo García</p>
+<p class="text-[10px] text-text-muted font-medium">ID: FB-2024-001</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 bg-slate-100 text-text-dark text-[10px] font-bold rounded uppercase">Sub-15</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-semibold text-text-muted">Delantero (FW)</span>
+</td>
+<td class="px-6 py-4 text-xs text-text-muted">
+                                12 Oct, 2023
+                            </td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+<span class="size-1.5 rounded-full bg-emerald-600"></span>
+                                    Al día
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-accent-light/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg overflow-hidden border border-slate-200">
+<img class="w-full h-full object-cover" data-alt="Portrait of player Lucia M." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd_o7cpEPDm50aQGVxO1aVe64mkhsvE1J5LpZz1nQCUgakTWokwuMctuZEDkWtpLb77zZOghxfDW1CsqmguhNnFhj_Av9X2FzeSqPltvRVDA5_vGdj1iwm_Twm9RELRSiFJbUou0E8Cccy5dNiDjPVIdbzQEtVGbmAugJeit3CJkgVSiQRswu0nZmgw7R1Bx1H0EoAwhJsAV-kzIXUr5plAEAyCufZEbRl9_I7PRWVno15aS7CZmUR2tRjkC8fDYSoS64HLHvnhQ"/>
+</div>
+<div>
+<p class="text-sm font-bold group-hover:text-primary transition-colors text-text-dark">Lucía Mendez</p>
+<p class="text-[10px] text-text-muted font-medium">ID: FB-2024-042</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 bg-slate-100 text-text-dark text-[10px] font-bold rounded uppercase">Sub-17</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-semibold text-text-muted">Defensa (DF)</span>
+</td>
+<td class="px-6 py-4 text-xs text-text-muted">
+                                -
+                            </td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-[10px] font-bold border border-orange-100">
+<span class="size-1.5 rounded-full bg-orange-600"></span>
+                                    Pendiente
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-accent-light/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg overflow-hidden border border-slate-200">
+<img class="w-full h-full object-cover" data-alt="Portrait of player Carlos R." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDa7bctP-30-suRHhqkRjFAKBPGBj5oiYAnpciqdpFXLBcXnQTJ9WrSbPFsqyEqIE0ZSuHO1aMIRcEs_PVmUw63xc0pLkUyZGQ8bJlfY3lWplnO6ff1TBaHZvrjNEC0El3WM6J8wQDEy5eUtBXdotDILAKBNuP_pWQTMl1JdNal9hSJJAIoxN_qzo-6JhyzJteRl-fsCh__ULV0-5Rz59zvYwOuC4Ed9ewqL4J69iAy6sLCH_pHwOAPJ5Q3THKv00e3B3_wVqjcbw"/>
+</div>
+<div>
+<p class="text-sm font-bold group-hover:text-primary transition-colors text-text-dark">Carlos Ruiz</p>
+<p class="text-[10px] text-text-muted font-medium">ID: FB-2024-088</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 bg-slate-100 text-text-dark text-[10px] font-bold rounded uppercase">Senior</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-semibold text-text-muted">Portero (GK)</span>
+</td>
+<td class="px-6 py-4 text-xs text-text-muted">
+                                05 Nov, 2023
+                            </td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+<span class="size-1.5 rounded-full bg-emerald-600"></span>
+                                    Al día
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-accent-light/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg overflow-hidden border border-slate-200">
+<img class="w-full h-full object-cover" data-alt="Portrait of player Sofia V." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC41-2IHP2WnPYkcgE8PCQKGmVAPEoIaFRx9K1g5b4jb1_fx_JAAWY9aFb1DW3sX6KZTun9ryVOiLrJlatAEd4r0w5X_WZoMLe6O-O3EPEZM0UGVwuhH5jpkiNS1dkKWeRJ1h448SEm4zyZIOvIjWCbr-j1_Iyk3_e-2ZIaIHSgVQjSy68q5B16jVcaxVXr54tv6zi35xzx8PcI4k1e6v0_bYqOTo9Vrlt2MZCXR2CPw5CYc9QeL2cilEbCcR2aYW6ZVQEWgZg1VA"/>
+</div>
+<div>
+<p class="text-sm font-bold group-hover:text-primary transition-colors text-text-dark">Sofia Valdés</p>
+<p class="text-[10px] text-text-muted font-medium">ID: FB-2024-115</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 bg-slate-100 text-text-dark text-[10px] font-bold rounded uppercase">Sub-15</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-xs font-semibold text-text-muted">Medio (MF)</span>
+</td>
+<td class="px-6 py-4 text-xs text-text-muted">
+                                28 Oct, 2023
+                            </td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+<span class="size-1.5 rounded-full bg-emerald-600"></span>
+                                    Al día
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="p-1.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-md transition-all">
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="mt-auto p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+<p class="text-xs text-text-muted font-bold">Mostrando <span class="text-primary">1 - 4</span> de <span class="text-primary">128</span> jugadores</p>
+<div class="flex gap-1">
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary transition-all">
+<span class="material-symbols-outlined text-base">chevron_left</span>
+</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-xs shadow-md shadow-primary/10">1</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary font-bold text-xs transition-all">2</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary font-bold text-xs transition-all">3</button>
+<span class="text-text-muted px-2 py-2 text-xs font-bold">...</span>
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary font-bold text-xs transition-all">12</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary transition-all">
+<span class="material-symbols-outlined text-base">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="mt-auto px-6 py-6 border-t border-border-color bg-white">
+<div class="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="size-6 bg-primary/10 rounded flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">sports_soccer</span>
+</div>
+<p class="text-[10px] text-text-muted uppercase tracking-widest font-bold">FutBase Management Suite © 2024</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[10px] text-text-muted hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Términos de Servicio</a>
+<a class="text-[10px] text-text-muted hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Privacidad</a>
+<a class="text-[10px] text-text-muted hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Centro de Soporte</a>
+</div>
+</div>
+</footer>
+
+</body></html>

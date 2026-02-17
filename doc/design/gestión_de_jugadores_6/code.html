@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Configuración FutBase - Panel de Control</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,FILL@0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1d5d54",
+                        "primary-hover": "#164a43",
+                        "accent-mint": "#eef5f3",
+                        "background-main": "#ffffff",
+                        "background-alt": "#f8fafc",
+                        "text-dark": "#1d5d54",
+                        "text-nav": "#64748b",
+                        "border-color": "#eef2f6"
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: #f8fafc;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+        }
+        .nav-item-active {
+            @apply bg-accent-mint text-primary border-r-[4px] border-primary rounded-l-lg rounded-r-none font-bold;
+        }
+        .nav-item-active .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background-alt text-slate-800 min-h-screen flex">
+<aside class="w-72 bg-white border-r border-border-color flex flex-col shrink-0 h-screen sticky top-0 overflow-y-auto">
+<div class="p-8">
+<div class="flex items-center gap-3">
+<div class="size-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20">
+<span class="material-symbols-outlined font-bold text-3xl">sports_soccer</span>
+</div>
+<div>
+<h1 class="text-2xl font-black tracking-tight text-primary leading-none">FutBase</h1>
+<p class="text-[10px] text-text-nav font-bold uppercase tracking-widest mt-1">Gestión Deportiva</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">grid_view</span>
+                Panel Principal
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">groups</span>
+                Equipos
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+                Jugadores
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">fitness_center</span>
+                Entrenamientos
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">sports_soccer</span>
+                Partidos
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">payments</span>
+                Cuotas
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">apparel</span>
+                Ropa
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 rounded-lg text-sm font-medium text-text-nav hover:bg-slate-50 transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">account_balance</span>
+                Contabilidad
+            </a>
+<a class="flex items-center gap-4 px-5 py-3.5 nav-item-active transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">settings</span>
+                Configuración
+            </a>
+</nav>
+<div class="p-6 border-t border-border-color">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full overflow-hidden border border-slate-200">
+<img alt="Admin Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAThqzYYzVXvxAo7vsYKfavGFc5tG5jRZ3rFrY3Mxt_bAoBQU4hiJDhNGqWb4ksh7xAlS7RkjAu7xRIXO7aCQk5ouGQLE7AuGtkuhGOS9udXZ_mfjNpzSGU37DHBlo9yGY7GYWOLpgXOEBYt0AmkAppjYIu1RFgScK-TEMK3uJSzznYMbA-vBa9c37lZ-V9bhz4FZ9k5KWFEw8JwO9JIFLm6F3f_CN_QmpzLQHcMeJYTABv5Qx1PvyJf2wGQ3mat9SvgZAttm2yxw"/>
+</div>
+<div class="overflow-hidden">
+<p class="text-xs font-bold text-primary truncate">Admin FutBase</p>
+<p class="text-[10px] text-text-nav truncate">admin@futbase.com</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-nav text-xl group-hover:text-primary transition-colors">logout</span>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col h-screen overflow-hidden">
+<header class="h-16 flex items-center justify-between px-8 bg-white border-b border-border-color shrink-0">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="w-full bg-slate-100 border-none rounded-xl py-2 pl-11 pr-4 text-sm focus:ring-2 focus:ring-primary/10 placeholder:text-slate-400" placeholder="Buscar en la configuración..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-xl text-slate-500 hover:bg-slate-50 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+</div>
+</header>
+<main class="flex-1 p-8 overflow-y-auto">
+<div class="max-w-5xl mx-auto pb-12">
+<div class="mb-10">
+<h2 class="text-3xl font-black text-primary tracking-tight">Configuración del Sistema</h2>
+<p class="text-slate-500 mt-1">Gestiona la identidad de tu club, accesos y preferencias generales.</p>
+</div>
+<div class="space-y-8">
+<section class="bg-white rounded-2xl border border-border-color overflow-hidden shadow-sm">
+<div class="px-6 py-5 border-b border-border-color bg-slate-50/30 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">domain</span>
+<h3 class="font-bold text-primary">Perfil del Club</h3>
+</div>
+<button class="text-xs font-bold text-primary px-4 py-2 hover:bg-primary/5 rounded-lg transition-colors">Guardar cambios</button>
+</div>
+<div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="flex flex-col gap-6">
+<div class="flex items-center gap-6">
+<div class="relative group">
+<div class="size-24 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-slate-300 text-3xl">add_a_photo</span>
+</div>
+<button class="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-lg shadow-lg hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-primary mb-1">Escudo Oficial</p>
+<p class="text-xs text-slate-500">Formatos recomendados: PNG o SVG. Máximo 2MB.</p>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nombre Completo del Club</label>
+<input class="w-full border-slate-100 bg-slate-50/50 rounded-xl focus:ring-primary focus:border-primary text-sm p-3" type="text" value="C.D. FutBase Academy"/>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email de Contacto</label>
+<input class="w-full border-slate-100 bg-slate-50/50 rounded-xl focus:ring-primary focus:border-primary text-sm p-3" type="email" value="contacto@futbase-academy.com"/>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Dirección Fiscal</label>
+<textarea class="w-full border-slate-100 bg-slate-50/50 rounded-xl focus:ring-primary focus:border-primary text-sm p-3" rows="3">Calle de la Victoria, 12, Ciudad Deportiva, 28001</textarea>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Teléfono de Oficina</label>
+<input class="w-full border-slate-100 bg-slate-50/50 rounded-xl focus:ring-primary focus:border-primary text-sm p-3" type="text" value="+34 900 123 456"/>
+</div>
+</div>
+</div>
+</section>
+<section class="bg-white rounded-2xl border border-border-color overflow-hidden shadow-sm">
+<div class="px-6 py-5 border-b border-border-color bg-slate-50/30 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">key</span>
+<h3 class="font-bold text-primary">Gestión de Roles</h3>
+</div>
+<button class="bg-primary text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-primary-hover transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">add</span>
+                                Nuevo Rol
+                            </button>
+</div>
+<div class="p-0 overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-slate-50/50">
+<th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rol</th>
+<th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Usuarios</th>
+<th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nivel de Acceso</th>
+<th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<tr class="hover:bg-slate-50/30 transition-colors">
+<td class="px-8 py-5 font-bold text-sm text-primary">Administrador Global</td>
+<td class="px-8 py-5 text-sm">3</td>
+<td class="px-8 py-5">
+<span class="px-2 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg uppercase border border-red-100">Total</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-primary hover:text-primary-hover font-bold text-xs">Editar Permisos</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/30 transition-colors">
+<td class="px-8 py-5 font-bold text-sm text-primary">Coordinador Técnico</td>
+<td class="px-8 py-5 text-sm">12</td>
+<td class="px-8 py-5">
+<span class="px-2 py-1 bg-primary/5 text-primary text-[10px] font-bold rounded-lg uppercase border border-primary/10">Avanzado</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-primary hover:text-primary-hover font-bold text-xs">Editar Permisos</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/30 transition-colors">
+<td class="px-8 py-5 font-bold text-sm text-primary">Entrenador Principal</td>
+<td class="px-8 py-5 text-sm">45</td>
+<td class="px-8 py-5">
+<span class="px-2 py-1 bg-slate-50 text-slate-500 text-[10px] font-bold rounded-lg uppercase border border-slate-100">Básico</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-primary hover:text-primary-hover font-bold text-xs">Editar Permisos</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-white rounded-2xl border border-border-color overflow-hidden shadow-sm">
+<div class="px-6 py-5 border-b border-border-color bg-slate-50/30 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">notifications_active</span>
+<h3 class="font-bold text-primary">Notificaciones</h3>
+</div>
+<div class="p-6 space-y-6">
+<label class="flex items-center justify-between group cursor-pointer">
+<div>
+<p class="text-sm font-bold text-primary">Alertas de Pagos</p>
+<p class="text-xs text-slate-500">Enviar recordatorios automáticos</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<label class="flex items-center justify-between group cursor-pointer">
+<div>
+<p class="text-sm font-bold text-primary">Cambios en Partidos</p>
+<p class="text-xs text-slate-500">Notificar a padres y jugadores</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-100 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+</div>
+</div>
+<div class="bg-white rounded-2xl border border-border-color overflow-hidden shadow-sm">
+<div class="px-6 py-5 border-b border-border-color bg-slate-50/30 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">language</span>
+<h3 class="font-bold text-primary">Idioma y Región</h3>
+</div>
+<div class="p-6 space-y-6">
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Zona Horaria</label>
+<select class="w-full border-slate-100 bg-slate-50/50 rounded-xl focus:ring-primary focus:border-primary text-sm p-3">
+<option>(GMT+01:00) Madrid, Barcelona, París</option>
+<option>(GMT-05:00) Eastern Time (US &amp; Canada)</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Moneda del Sistema</label>
+<select class="w-full border-slate-100 bg-slate-50/50 rounded-xl focus:ring-primary focus:border-primary text-sm p-3">
+<option>Euro (€) - EUR</option>
+<option>Dólar Americano ($) - USD</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<footer class="mt-8 py-8 border-t border-border-color">
+<div class="flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="size-6 bg-primary/10 rounded flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">sports_soccer</span>
+</div>
+<p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">FutBase Management Suite © 2024</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[10px] text-slate-400 hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Términos</a>
+<a class="text-[10px] text-slate-400 hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Privacidad</a>
+<a class="text-[10px] text-slate-400 hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Soporte</a>
+</div>
+</div>
+</footer>
+</main>
+</div>
+
+</body></html>

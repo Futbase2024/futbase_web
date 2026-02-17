@@ -1,0 +1,353 @@
+<html class="light" lang="es"><head></head><body class="bg-background-alt text-text-dark min-h-screen flex">```html
+
+
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Entrenamientos - FutBase</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00554E", // Dark forest green
+                        "primary-hover": "#00443e",
+                        "mint-active": "#EAF2F1", // Refined mint background for active item
+                        "accent-light": "#f0f7f6",
+                        "background-main": "#ffffff",
+                        "background-alt": "#f8fafc",
+                        "text-dark": "#0f172a",
+                        "text-muted": "#64748b",
+                        "sidebar-text": "#5C6A7D",
+                        "border-color": "#e2e8f0"
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: var(--background-alt);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .sidebar-item-active {
+            @apply bg-mint-active text-primary border-r-[4px] border-primary font-bold rounded-l-lg ml-3;
+        }
+        .sidebar-item {
+            @apply flex items-center gap-3 px-6 py-3.5 text-sm text-sidebar-text hover:bg-slate-50 transition-all rounded-l-lg ml-3 mr-0;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00554E;
+        }
+    </style>
+
+
+<aside class="w-[280px] bg-white border-r border-border-color flex flex-col h-screen sticky top-0 shrink-0">
+<div class="p-8 flex items-start gap-3">
+<div class="size-12 rounded-xl shadow-sm overflow-hidden">
+<img alt="Logo FutBase" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcPf53GKgJr8Niio7dOriVLpezHRPtMoZvRxHt6moFcPJU-CSGzf0Je1cX7BAy-mqbjNA8JvJee7YHjZTXMdP6nx_9YySg0-L61jD6v0xalIpTte2xwOKRUcsJ46f5oSDIxQE3N06Jtfmy7pZjhdE9z1JBnTsVN4eMr5kfPUoao1Cj3yrOo3oFdS-nHs5GHhQXp14DwxdIbm41ge2XqvdOUZHHaSFpDEJWCy8ZAp2gALegTS_j6Gd1rTGrQbUxwiE6J5YyN76asg"/>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tight text-primary leading-tight">FutBase</h1>
+<p class="text-[9px] font-bold text-text-muted uppercase tracking-[0.15em]">Gestión Deportiva</p>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto py-2">
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">grid_view</span>
+            Panel Principal
+        </a>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">group</span>
+            Equipos
+        </a>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">person</span>
+            Jugadores
+        </a>
+<a class="sidebar-item sidebar-item-active" href="#">
+<span class="material-symbols-outlined text-[22px] fill-1">exercise</span>
+            Entrenamientos
+        </a>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">sports_soccer</span>
+            Partidos
+        </a>
+<div class="h-px bg-slate-100 my-4 mx-8"></div>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+            Cuotas
+        </a>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">checkroom</span>
+            Ropa
+        </a>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">account_balance</span>
+            Contabilidad
+        </a>
+<a class="sidebar-item" href="#">
+<span class="material-symbols-outlined text-[22px]">settings</span>
+            Configuración
+        </a>
+</nav>
+<div class="p-6 border-t border-slate-100">
+<div class="flex items-center gap-3">
+<img alt="Admin" class="size-10 rounded-full border border-slate-200 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAThqzYYzVXvxAo7vsYKfavGFc5tG5jRZ3rFrY3Mxt_bAoBQU4hiJDhNGqWb4ksh7xAlS7RkjAu7xRIXO7aCQk5ouGQLE7AuGtkuhGOS9udXZ_mfjNpzSGU37DHBlo9yGY7GYWOLpgXOEBYt0AmkAppjYIu1RFgScK-TEMK3uJSzznYMbA-vBa9c37lZ-V9bhz4FZ9k5KWFEw8JwO9JIFLm6F3f_CN_QmpzLQHcMeJYTABv5Qx1PvyJf2wGQ3mat9SvgZAttm2yxw"/>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold text-text-dark truncate">Admin FutBase</p>
+<p class="text-[10px] text-text-muted truncate">admin@futbase.com</p>
+</div>
+<button class="text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-h-screen">
+<header class="bg-white border-b border-border-color px-8 py-6 sticky top-0 z-10 flex items-center justify-between">
+<div>
+<h2 class="text-2xl font-bold text-primary">Gestión de Entrenamientos</h2>
+<p class="text-sm text-text-muted font-medium mt-1">Planificación semanal y control de asistencia</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-lg">search</span>
+<input class="bg-slate-100 border-none rounded-lg py-2 pl-10 pr-4 text-xs w-72 focus:ring-2 focus:ring-primary/20" placeholder="Buscar sesión, equipo o lugar..." type="text"/>
+</div>
+<button class="p-2.5 rounded-lg text-text-muted hover:bg-slate-100 transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+</div>
+</header>
+<div class="p-8 space-y-8">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div class="flex gap-3">
+<button class="flex items-center gap-2 bg-white border border-border-color text-text-dark px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+                    Vista Calendario
+                </button>
+<button class="flex items-center gap-2 bg-white border border-border-color text-text-dark px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]">list</span>
+                    Vista Lista
+                </button>
+</div>
+<div class="flex gap-2 w-full md:w-auto">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+                    Nueva Sesión
+                </button>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white p-6 rounded-xl border border-border-color shadow-sm">
+<p class="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Entrenamientos Hoy</p>
+<p class="text-3xl font-black text-primary">6</p>
+</div>
+<div class="bg-white p-6 rounded-xl border border-border-color shadow-sm">
+<p class="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Asistencia Media</p>
+<p class="text-3xl font-black text-primary">92%</p>
+</div>
+<div class="bg-white p-6 rounded-xl border border-border-color shadow-sm text-emerald-600">
+<p class="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Completados (Semana)</p>
+<p class="text-3xl font-black">18</p>
+</div>
+<div class="bg-white p-6 rounded-xl border border-border-color shadow-sm text-amber-600">
+<p class="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Próximos (Semana)</p>
+<p class="text-3xl font-black">24</p>
+</div>
+</div>
+<div class="bg-white border border-border-color rounded-xl shadow-sm overflow-hidden">
+<div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:row items-start sm:items-center justify-between gap-4">
+<h3 class="font-bold text-text-dark text-lg">Sesiones Programadas</h3>
+<div class="flex items-center gap-3">
+<span class="text-xs text-text-muted font-medium">Filtrar por equipo:</span>
+<select class="text-xs border-slate-200 rounded-lg py-1.5 px-3 focus:ring-primary focus:border-primary">
+<option>Todos los equipos</option>
+<option>Juvenil A</option>
+<option>Cadete B</option>
+<option>Infantil C</option>
+</select>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50/50">
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Fecha / Hora</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Equipo</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Lugar</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Objetivo</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-text-muted">Estado</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-text-muted text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-text-dark">Hoy, 14 Nov</span>
+<span class="text-[11px] text-primary font-bold">17:00 - 18:30</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Sub-15 A</span>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-medium text-text-muted flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                                    Campo Principal
+                                </span>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-semibold text-text-dark">Salida de balón y presión alta</span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100 uppercase">
+<span class="size-1.5 rounded-full bg-emerald-600"></span>
+                                    Completado
+                                </span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="Ver asistencia">
+<span class="material-symbols-outlined text-xl">how_to_reg</span>
+</button>
+<button class="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="Editar">
+<span class="material-symbols-outlined text-xl">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-text-dark">Hoy, 14 Nov</span>
+<span class="text-[11px] text-primary font-bold">18:30 - 20:00</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Sub-17 B</span>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-medium text-text-muted flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                                    Campo Anexo 2
+                                </span>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-semibold text-text-dark">Transiciones ofensivas</span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100 uppercase">
+<span class="size-1.5 rounded-full bg-blue-600"></span>
+                                    En curso
+                                </span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
+<span class="material-symbols-outlined text-xl">how_to_reg</span>
+</button>
+<button class="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
+<span class="material-symbols-outlined text-xl">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/80 transition-colors">
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-text-dark">Mañana, 15 Nov</span>
+<span class="text-[11px] text-primary font-bold">16:00 - 17:30</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase">Benjamín C</span>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-medium text-text-muted flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                                    Pabellón Int.
+                                </span>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-semibold text-text-dark">Fundamentos técnicos</span>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200 uppercase">
+<span class="size-1.5 rounded-full bg-slate-400"></span>
+                                    Programado
+                                </span>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
+<span class="material-symbols-outlined text-xl">schedule</span>
+</button>
+<button class="p-2 text-text-muted hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
+<span class="material-symbols-outlined text-xl">edit</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/30">
+<p class="text-[11px] text-text-muted font-bold uppercase tracking-wide">Mostrando <span class="text-primary">3</span> de <span class="text-primary">42</span> sesiones semanales</p>
+<div class="flex gap-1.5">
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary transition-all shadow-sm">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-xs shadow-md shadow-primary/20">1</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary font-bold text-xs transition-all shadow-sm">2</button>
+<button class="size-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-text-muted hover:text-primary transition-all shadow-sm">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<footer class="mt-auto px-8 py-6 border-t border-border-color bg-white flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="size-6 bg-primary/10 rounded flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[14px]">sports_soccer</span>
+</div>
+<p class="text-[10px] text-text-muted uppercase tracking-[0.1em] font-bold">FutBase Platform © 2024 - Sistema de Gestión Unificado</p>
+</div>
+<div class="flex gap-8">
+<a class="text-[10px] text-text-muted hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Soporte Técnico</a>
+<a class="text-[10px] text-text-muted hover:text-primary uppercase tracking-widest font-bold transition-colors" href="#">Privacidad</a>
+</div>
+</footer>
+</main>
+
+```</body></html>

@@ -1,0 +1,79 @@
+name: futbase_web_3
+description: "FutBase 3.0 - Plataforma de Gestión Deportiva Profesional"
+publish_to: 'none'
+
+version: 3.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & Animations
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  animate_do: ^3.3.4
+  flutter_svg: ^2.0.16
+  cached_network_image: ^3.2.2
+  loading_animation_widget: ^1.3.0
+
+  # State Management
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.8
+
+  # Dependency Injection
+  get_it: ^8.0.2
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # Networking
+  http: ^1.2.2
+
+  # Utils
+  intl: ^0.20.2
+  flutter_screenutil: ^5.9.3
+
+  # Charts & Graphs
+  fl_chart: ^0.70.1
+
+  # Supabase
+  supabase_flutter: ^2.8.3
+
+  # Core Datasource (local package)
+  futbase_core_datasource:
+    path: ../FutBase3/futbase_core_datasource
+
+  # Icons
+  font_awesome_flutter: ^10.8.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: false
+  ios: false
+  web:
+    generate: true
+    image_path: "lib/assets/icons/icono.png"
+    background_color: "#FFFFFF"
+    theme_color: "#1E88E5"
+  windows:
+    generate: false
+  macos:
+    generate: false
+  linux:
+    generate: false
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - lib/assets/images/
+    - lib/assets/icons/
+    - lib/assets/logo/

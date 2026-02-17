@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FutBase - Gestión de Equipos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00554E", // Dark forest green
+                        "primary-active-bg": "#E9F2F1", // Light mint green for active item
+                        "accent": "#a4ec13",  // Brand lime
+                        "sidebar-bg": "#ffffff",
+                        "main-bg": "#f8fafc",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            font-family: 'Lexend', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .nav-active-indicator {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #00554E;
+            border-radius: 4px 0 0 4px;
+        }
+    </style>
+</head>
+<body class="bg-main-bg text-slate-900 antialiased">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-64 flex-shrink-0 bg-sidebar-bg flex flex-col relative border-r border-gray-100">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-12 px-2">
+<div class="bg-primary rounded-xl p-2.5 flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-2xl">sports_soccer</span>
+</div>
+<div>
+<h1 class="text-primary text-xl font-bold leading-tight tracking-tight">FutBase</h1>
+<p class="text-gray-400 text-[9px] uppercase tracking-[0.15em] font-bold">Gestión Deportiva</p>
+</div>
+</div>
+<nav class="space-y-1 relative">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">grid_view</span>
+<span class="text-[15px] font-medium">Panel Principal</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-l-xl bg-primary-active-bg text-primary group relative overflow-hidden" href="#">
+<div class="nav-active-indicator"></div>
+<span class="material-symbols-outlined text-[24px] fill-1">groups</span>
+<span class="text-[15px] font-bold">Equipos</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="text-[15px] font-medium">Jugadores</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">fitness_center</span>
+<span class="text-[15px] font-medium">Entrenamientos</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">sports_soccer</span>
+<span class="text-[15px] font-medium">Partidos</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">payments</span>
+<span class="text-[15px] font-medium">Cuotas</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">checkroom</span>
+<span class="text-[15px] font-medium">Ropa</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">account_balance</span>
+<span class="text-[15px] font-medium">Contabilidad</span>
+</a>
+<div class="pt-4 mt-4 border-t border-gray-50">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-slate-500 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+<span class="text-[15px] font-medium">Configuración</span>
+</a>
+</div>
+</nav>
+</div>
+<div class="mt-auto p-4 border-t border-gray-50">
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-cover bg-center border border-gray-100 shadow-sm" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCCoK_8VETfGPnaMKwRXLz0HKvtv_fwAftArZG1ApiU2JiC-oFMIBNkc8RnpH3pEyZCNNkytFPHuxNbAdEAvm7W7d9oLQqiKgYMfn-1sNt-9TPeMAzYKGusYGcB2-rFnh3R_6IivTqb-B7SYqpRIsOYMszo7LRvzSH5f5wJNTW9pkDtHgz1y-JSEDmB2kbl1DzJtT8J-lY2HLLOTafKuLzemKEi-OewANYHHOSv51wR99H2rLCEiJW6tlTgWMDKbaTrjxt_T8je9A')"></div>
+<div class="overflow-hidden">
+<p class="text-primary text-[13px] font-bold truncate leading-tight">Admin FutBase</p>
+<p class="text-slate-400 text-[11px] truncate leading-tight">admin@futbase.com</p>
+</div>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col overflow-hidden">
+<header class="h-16 flex items-center justify-between px-8 border-b border-gray-200 bg-white">
+<div class="flex items-center gap-4">
+<h2 class="text-primary text-xl font-bold">Gestión de Equipos</h2>
+<span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Total 8 Equipos</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">search</span>
+<input class="bg-gray-100 border-none text-gray-900 text-sm rounded-lg pl-10 pr-4 py-2 w-64 focus:ring-2 focus:ring-primary placeholder:text-gray-400" placeholder="Buscar equipos..." type="text"/>
+</div>
+<button class="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity shadow-md">
+<span class="material-symbols-outlined text-lg">add</span>
+<span>Crear Nuevo Equipo</span>
+</button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-2">
+<button class="px-4 py-1.5 bg-primary text-white rounded-full text-xs font-bold shadow-md">Todos los Equipos</button>
+<button class="px-4 py-1.5 bg-white text-gray-500 border border-gray-200 hover:border-primary hover:text-primary rounded-full text-xs font-bold transition-colors">Liga Élite</button>
+<button class="px-4 py-1.5 bg-white text-gray-500 border border-gray-200 hover:border-primary hover:text-primary rounded-full text-xs font-bold transition-colors">Desarrollo</button>
+<button class="px-4 py-1.5 bg-white text-gray-500 border border-gray-200 hover:border-primary hover:text-primary rounded-full text-xs font-bold transition-colors">Fútbol Base</button>
+</div>
+<div class="flex items-center gap-3 text-gray-400">
+<span class="material-symbols-outlined cursor-pointer text-primary transition-colors">grid_view</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-40">format_list_bulleted</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden group hover:shadow-xl transition-all">
+<div class="h-2 bg-primary"></div>
+<div class="p-4 flex justify-between items-start">
+<div class="w-12 h-12 bg-primary/5 rounded-lg border border-primary/10 shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl font-bold">shield</span>
+</div>
+<button class="text-gray-400 hover:text-primary">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="px-5 pb-5">
+<div class="mb-3">
+<span class="bg-primary/5 text-primary text-[10px] font-bold px-2 py-1 rounded border border-primary/10 uppercase tracking-wide">Plantilla Élite</span>
+</div>
+<h3 class="text-slate-900 text-xl font-bold mb-1">FutBase U17</h3>
+<p class="text-gray-500 text-xs mb-6 font-medium">Liga Premier Juvenil • División 1</p>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">groups</span>
+<span class="text-gray-600 text-sm font-medium">Jugadores</span>
+</div>
+<span class="text-primary text-sm font-bold">22/25</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">person</span>
+<span class="text-gray-600 text-sm font-medium">Entrenador</span>
+</div>
+<span class="text-gray-500 text-sm">Marco Silva</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-gray-50 flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">JD</div>
+<div class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">KS</div>
+<div class="w-7 h-7 rounded-full border-2 border-white bg-primary text-white flex items-center justify-center text-[10px] font-bold">+19</div>
+</div>
+<button class="text-primary text-xs font-bold hover:underline transition-all">Gestionar Equipo</button>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden group hover:shadow-xl transition-all">
+<div class="h-2 bg-primary"></div>
+<div class="p-4 flex justify-between items-start">
+<div class="w-12 h-12 bg-primary/5 rounded-lg border border-primary/10 shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl font-bold">shield</span>
+</div>
+<button class="text-gray-400 hover:text-primary">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="px-5 pb-5">
+<div class="mb-3">
+<span class="bg-primary/5 text-primary text-[10px] font-bold px-2 py-1 rounded border border-primary/10 uppercase tracking-wide">Desarrollo</span>
+</div>
+<h3 class="text-slate-900 text-xl font-bold mb-1">FutBase U15</h3>
+<p class="text-gray-500 text-xs mb-6 font-medium">Liga Junior Regional</p>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">groups</span>
+<span class="text-gray-600 text-sm font-medium">Jugadores</span>
+</div>
+<span class="text-primary text-sm font-bold">18/22</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">person</span>
+<span class="text-gray-600 text-sm font-medium">Entrenador</span>
+</div>
+<span class="text-gray-500 text-sm">Sarah Jenkins</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-gray-50 flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">PL</div>
+<div class="w-7 h-7 rounded-full border-2 border-white bg-primary text-white flex items-center justify-center text-[10px] font-bold">+16</div>
+</div>
+<button class="text-primary text-xs font-bold hover:underline transition-all">Gestionar Equipo</button>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden group hover:shadow-xl transition-all">
+<div class="h-2 bg-primary"></div>
+<div class="p-4 flex justify-between items-start">
+<div class="w-12 h-12 bg-primary/5 rounded-lg border border-primary/10 shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl font-bold">shield</span>
+</div>
+<button class="text-gray-400 hover:text-primary">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="px-5 pb-5">
+<div class="mb-3">
+<span class="bg-primary/5 text-primary text-[10px] font-bold px-2 py-1 rounded border border-primary/10 uppercase tracking-wide">Estrellas</span>
+</div>
+<h3 class="text-slate-900 text-xl font-bold mb-1">FutBase U13</h3>
+<p class="text-gray-500 text-xs mb-6 font-medium">Copa Juvenil del Condado</p>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">groups</span>
+<span class="text-gray-600 text-sm font-medium">Jugadores</span>
+</div>
+<span class="text-primary text-sm font-bold">20/20</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">person</span>
+<span class="text-gray-600 text-sm font-medium">Entrenador</span>
+</div>
+<span class="text-gray-500 text-sm">David Chen</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-gray-50 flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">RC</div>
+<div class="w-7 h-7 rounded-full border-2 border-white bg-primary text-white flex items-center justify-center text-[10px] font-bold">+18</div>
+</div>
+<button class="text-primary text-xs font-bold hover:underline transition-all">Gestionar Equipo</button>
+</div>
+</div>
+</div>
+<button class="rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center p-8 group hover:border-primary hover:bg-white transition-all bg-transparent">
+<div class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4 group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-white text-3xl">add</span>
+</div>
+<span class="text-primary font-bold">Crear Nuevo Equipo</span>
+<span class="text-gray-400 text-xs mt-1 text-center font-medium">Asignar jugadores y entrenadores</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Panel Principal - FutBase Gestión Deportiva</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00554E",
+                        "accent-mint": "#E9F2F1",
+                        "background-light": "#f8fafb",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            font-family: 'Lexend', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+        }
+        .sidebar-active {
+            background-color: #E9F2F1;
+            color: #00554E;
+            position: relative;
+            border-radius: 12px 0 0 12px;
+        }
+        .sidebar-active::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #00554E;
+            border-radius: 4px 0 0 4px;
+        }
+        .sidebar-active span {
+            font-variation-settings: 'FILL' 1;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background-light text-[#101818] font-display">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-72 bg-white border-r border-gray-100 flex flex-col h-full shrink-0">
+<div class="p-8 flex items-center gap-3">
+<div class="size-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
+<img alt="FutBase Icon" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1UCSCBPNFPKQ_MVvbP1Q2ebijC3P0us5fYiE4J2XrAqnBXu3BZsAaZwrOAbwaIl-v0qty59YcbqiM-4MrMsLSrmblFHvH0IFrZR3isFYSZhVJF63atLYghJCNRkk4UevFg6KcGNyvUgh3ZzuB4JQ-UukIbWXXDyyRM50NcdnfJ4-T3Sw-OJJ-QH2OtedEKWSc0QBhKOfWq9Y2v2zi3p6GYDzi1eed0KZLz5I3bMZC3W1tUgaeSHPCReX21-VCaLp2HnR9l4p90Q"/>
+</div>
+<div>
+<h1 class="text-xl font-bold text-primary leading-none">FutBase</h1>
+<p class="text-[10px] font-bold text-gray-400 tracking-[0.1em] mt-1">GESTIÓN DEPORTIVA</p>
+</div>
+</div>
+<nav class="flex-1 pl-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+<a class="flex items-center gap-4 px-6 py-3.5 sidebar-active transition-all" href="#">
+<span class="material-symbols-outlined text-2xl">grid_view</span>
+<span class="text-sm font-semibold">Panel Principal</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">groups</span>
+<span class="text-sm font-medium">Equipos</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">person</span>
+<span class="text-sm font-medium">Jugadores</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">exercise</span>
+<span class="text-sm font-medium">Entrenamientos</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">sports_soccer</span>
+<span class="text-sm font-medium">Partidos</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">payments</span>
+<span class="text-sm font-medium">Cuotas</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">apparel</span>
+<span class="text-sm font-medium">Ropa</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">account_balance</span>
+<span class="text-sm font-medium">Contabilidad</span>
+</a>
+<div class="pt-4 mt-4 border-t border-gray-50 mr-4">
+<a class="flex items-center gap-4 px-6 py-3.5 text-primary/70 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-2xl group-hover:fill-current">settings</span>
+<span class="text-sm font-medium">Configuración</span>
+</a>
+</div>
+</nav>
+<div class="p-6 border-t border-gray-50 bg-gray-50/30">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-primary/10 overflow-hidden ring-2 ring-white">
+<img alt="Admin Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMUTFazofHJgW42Fs3cuMZWecXGKC8kPFqo-i3U0GyItZtcAFkm_VZjfy4Fdp_pSOD7-XbfLyXd-jpNZ2BhCYGUusWxzWyPNofR6NdZxf3G78lX8G3lrlwAnmTKDRh4T8yOAidJ8XvxYuZRG5U9dOg70bznqEoU-u4p3NupkFtp4J-dKgYA4_-6jWxdnELt8icgVuMayz7Wu_zHobzwISwDEIzgxeRiKyq6BcL2AJcXM-qL2mmwNUX05QPLWDuWkfbupr12XjNyg"/>
+</div>
+<div>
+<p class="text-xs font-bold text-primary">Admin FutBase</p>
+<p class="text-[10px] text-gray-400">admin@futbase.com</p>
+</div>
+</div>
+<button class="text-primary/40 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+<header class="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-10 shrink-0">
+<div class="flex items-center gap-4">
+<h2 class="text-xl font-bold text-gray-800 tracking-tight">Panel Principal</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-72">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">search</span>
+<input class="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/10 focus:border-primary/20 transition-all" placeholder="Buscar jugadores, equipos..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2.5 text-gray-400 hover:bg-gray-50 rounded-xl transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto p-10">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+<div>
+<h3 class="text-3xl font-bold text-gray-900 tracking-tight">¡Hola de nuevo!</h3>
+<p class="text-gray-500 mt-1">Aquí tienes el resumen de hoy, 24 de Mayo de 2024.</p>
+</div>
+<div class="flex gap-4">
+<button class="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all">
+<span class="material-symbols-outlined text-xl">person_add</span>
+                        Añadir Jugador
+                    </button>
+<button class="flex items-center gap-2 bg-white text-primary border border-primary/10 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all shadow-sm">
+<span class="material-symbols-outlined text-xl">receipt_long</span>
+                        Registrar Gasto
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+<div class="bg-primary p-7 rounded-2xl shadow-xl shadow-primary/10 text-white relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-6">
+<div class="p-3 bg-white/10 rounded-xl">
+<span class="material-symbols-outlined">groups</span>
+</div>
+<span class="text-[10px] font-bold bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider">+12% MES</span>
+</div>
+<p class="text-white/60 text-sm font-medium mb-1">Total Jugadores</p>
+<h4 class="text-4xl font-bold">124</h4>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 transform rotate-12 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-8xl">groups</span>
+</div>
+</div>
+<div class="bg-primary p-7 rounded-2xl shadow-xl shadow-primary/10 text-white relative overflow-hidden group">
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-6">
+<div class="p-3 bg-white/10 rounded-xl">
+<span class="material-symbols-outlined">calendar_today</span>
+</div>
+<span class="text-[10px] font-bold bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider">HOY: 18:00</span>
+</div>
+<p class="text-white/60 text-sm font-medium mb-1">Entrenamientos Hoy</p>
+<h4 class="text-4xl font-bold">4 Sesiones</h4>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 transform rotate-12 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-8xl">calendar_today</span>
+</div>
+</div>
+<div class="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+<div>
+<div class="p-3 bg-primary/5 rounded-xl text-primary inline-block mb-6">
+<span class="material-symbols-outlined">trending_up</span>
+</div>
+<p class="text-gray-400 text-sm font-medium mb-1">Asistencia Media</p>
+<h4 class="text-4xl font-bold text-primary">92%</h4>
+</div>
+</div>
+<div class="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+<div>
+<div class="p-3 bg-primary/5 rounded-xl text-primary inline-block mb-6">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</div>
+<p class="text-gray-400 text-sm font-medium mb-1">Ingresos Mensuales</p>
+<h4 class="text-4xl font-bold text-primary">3.450€</h4>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+<div class="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+<div class="flex items-center justify-between mb-10">
+<div>
+<h5 class="text-lg font-bold text-gray-900">Resumen Semanal</h5>
+<p class="text-sm text-gray-400">Asistencia a entrenamientos por día</p>
+</div>
+<select class="bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold text-gray-500 py-2.5 px-4 focus:ring-primary/10">
+<option>ESTA SEMANA</option>
+<option>SEMANA PASADA</option>
+</select>
+</div>
+<div class="h-72 flex flex-col gap-6">
+<svg class="w-full h-56 overflow-visible" viewBox="0 0 500 150">
+<line stroke="#f8fafb" stroke-width="1" x1="0" x2="500" y1="0" y2="0"></line>
+<line stroke="#f8fafb" stroke-width="1" x1="0" x2="500" y1="50" y2="50"></line>
+<line stroke="#f8fafb" stroke-width="1" x1="0" x2="500" y1="100" y2="100"></line>
+<line stroke="#f8fafb" stroke-width="1" x1="0" x2="500" y1="150" y2="150"></line>
+<path d="M0,120 Q80,110 160,40 T320,80 T500,20" fill="none" stroke="#00554E" stroke-linecap="round" stroke-width="4"></path>
+<path d="M0,120 Q80,110 160,40 T320,80 T500,20 V150 H0 Z" fill="url(#grad1)" opacity="0.1"></path>
+<defs>
+<linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#00554E;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:#00554E;stop-opacity:0"></stop>
+</linearGradient>
+</defs>
+<circle cx="160" cy="40" fill="#00554E" r="6" stroke="white" stroke-width="2"></circle>
+<circle cx="320" cy="80" fill="#00554E" r="6" stroke="white" stroke-width="2"></circle>
+<circle cx="500" cy="20" fill="#00554E" r="6" stroke="white" stroke-width="2"></circle>
+</svg>
+<div class="flex justify-between text-[10px] font-bold text-gray-400 px-1 tracking-widest">
+<span>LUN</span>
+<span>MAR</span>
+<span>MIE</span>
+<span>JUE</span>
+<span>VIE</span>
+<span>SAB</span>
+<span>DOM</span>
+</div>
+</div>
+</div>
+<div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+<h5 class="text-lg font-bold text-gray-900">Estado de Cuotas</h5>
+<p class="text-sm text-gray-400 mb-10">Periodo Mayo 2024</p>
+<div class="flex-1 flex flex-col items-center justify-center relative">
+<div class="relative flex items-center justify-center">
+<svg class="size-56 transform -rotate-90">
+<circle class="text-gray-50" cx="112" cy="112" fill="transparent" r="95" stroke="currentColor" stroke-width="14"></circle>
+<circle class="text-primary" cx="112" cy="112" fill="transparent" r="95" stroke="currentColor" stroke-dasharray="596.6" stroke-dashoffset="89.49" stroke-linecap="round" stroke-width="14"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-5xl font-bold text-gray-900">85%</span>
+<span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Cobrado</span>
+</div>
+</div>
+</div>
+<div class="mt-10 space-y-4">
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-3">
+<span class="size-2.5 rounded-full bg-primary"></span>
+<span class="text-gray-500 font-medium">Pagado</span>
+</div>
+<span class="font-bold text-gray-900">2.932€</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-3">
+<span class="size-2.5 rounded-full bg-gray-100"></span>
+<span class="text-gray-500 font-medium">Pendiente</span>
+</div>
+<span class="font-bold text-gray-900">518€</span>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+<div class="flex items-center justify-between mb-8">
+<h5 class="text-lg font-bold text-gray-900">Próximos Partidos</h5>
+<button class="text-primary text-xs font-bold hover:underline tracking-tight">VER TODO</button>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-5 rounded-2xl bg-gray-50/50 border border-gray-100 hover:border-primary/20 transition-all cursor-pointer">
+<div class="size-12 bg-white rounded-xl shadow-sm flex items-center justify-center font-bold text-xs text-primary border border-gray-50">VCF</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-gray-900">Alevín A vs Rival 1</p>
+<p class="text-xs text-gray-400 mt-0.5">Sábado, 10:00 • Campo 1</p>
+</div>
+<div class="text-right">
+<span class="text-[9px] font-bold bg-primary text-white px-2.5 py-1 rounded-full uppercase">LIGA</span>
+</div>
+</div>
+<div class="flex items-center gap-4 p-5 rounded-2xl bg-gray-50/50 border border-gray-100 hover:border-primary/20 transition-all cursor-pointer">
+<div class="size-12 bg-white rounded-xl shadow-sm flex items-center justify-center font-bold text-xs text-primary border border-gray-50">LEH</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-gray-900">Cadete B vs Rival 2</p>
+<p class="text-xs text-gray-400 mt-0.5">Sábado, 12:30 • Campo Principal</p>
+</div>
+<div class="text-right">
+<span class="text-[9px] font-bold bg-gray-400 text-white px-2.5 py-1 rounded-full uppercase">AMISTOSO</span>
+</div>
+</div>
+<div class="flex items-center gap-4 p-5 rounded-2xl bg-gray-50/50 border border-gray-100 hover:border-primary/20 transition-all cursor-pointer">
+<div class="size-12 bg-white rounded-xl shadow-sm flex items-center justify-center font-bold text-xs text-primary border border-gray-50">AMB</div>
+<div class="flex-1">
+<p class="text-sm font-bold text-gray-900">Prebenjamín vs Rival 3</p>
+<p class="text-xs text-gray-400 mt-0.5">Domingo, 09:30 • Campo 3</p>
+</div>
+<div class="text-right">
+<span class="text-[9px] font-bold bg-primary text-white px-2.5 py-1 rounded-full uppercase">LIGA</span>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+<div class="flex items-center justify-between mb-8">
+<h5 class="text-lg font-bold text-gray-900">Últimos Resultados</h5>
+<div class="flex gap-2">
+<button class="p-1.5 hover:bg-gray-50 border border-gray-100 rounded-lg text-gray-400 transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-1.5 hover:bg-gray-50 border border-gray-100 rounded-lg text-gray-400 transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold text-gray-400 border-b border-gray-50 uppercase tracking-widest">
+<th class="pb-4 px-2">Equipo</th>
+<th class="pb-4 px-2">Rival</th>
+<th class="pb-4 px-2 text-center">Resultado</th>
+<th class="pb-4 px-2">Estado</th>
+<th class="pb-4 px-2 text-right">Fecha</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-50">
+<tr class="group">
+<td class="py-5 px-2 font-semibold text-sm text-gray-900">Juvenil Nacional</td>
+<td class="py-5 px-2 text-sm text-gray-500">Rival A</td>
+<td class="py-5 px-2 text-center">
+<span class="font-bold text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">3 - 1</span>
+</td>
+<td class="py-5 px-2">
+<span class="text-[9px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full uppercase tracking-wider">VICTORIA</span>
+</td>
+<td class="py-5 px-2 text-right text-[10px] font-bold text-gray-400">18 MAY</td>
+</tr>
+<tr class="group">
+<td class="py-5 px-2 font-semibold text-sm text-gray-900">Infantil A</td>
+<td class="py-5 px-2 text-sm text-gray-500">Rival B</td>
+<td class="py-5 px-2 text-center">
+<span class="font-bold text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">2 - 2</span>
+</td>
+<td class="py-5 px-2">
+<span class="text-[9px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider">EMPATE</span>
+</td>
+<td class="py-5 px-2 text-right text-[10px] font-bold text-gray-400">18 MAY</td>
+</tr>
+<tr class="group">
+<td class="py-5 px-2 font-semibold text-sm text-gray-900">Cadete A</td>
+<td class="py-5 px-2 text-sm text-gray-500">Rival C</td>
+<td class="py-5 px-2 text-center">
+<span class="font-bold text-gray-900 bg-gray-50 px-3 py-1 rounded-lg">0 - 1</span>
+</td>
+<td class="py-5 px-2">
+<span class="text-[9px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full uppercase tracking-wider">DERROTA</span>
+</td>
+<td class="py-5 px-2 text-right text-[10px] font-bold text-gray-400">17 MAY</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+
+</body></html>
