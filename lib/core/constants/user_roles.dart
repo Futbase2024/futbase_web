@@ -85,4 +85,25 @@ extension UserRolePermissions on UserRole {
 
   /// Puede ver Dashboard completo
   bool get hasFullDashboard => this == UserRole.superAdmin;
+
+  /// Puede ver resultados de partidos
+  bool get canViewResults =>
+      this == UserRole.superAdmin ||
+      this == UserRole.club ||
+      this == UserRole.coordinador ||
+      this == UserRole.entrenador;
+
+  /// Puede ver informes
+  bool get canViewReports =>
+      this == UserRole.superAdmin ||
+      this == UserRole.club ||
+      this == UserRole.coordinador ||
+      this == UserRole.entrenador;
+
+  /// Puede cambiar de temporada
+  bool get canChangeSeason =>
+      this == UserRole.superAdmin ||
+      this == UserRole.club ||
+      this == UserRole.coordinador ||
+      this == UserRole.entrenador;
 }

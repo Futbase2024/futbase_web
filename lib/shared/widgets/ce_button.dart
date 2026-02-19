@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import 'ce_loading.dart';
 
 /// Botón genérico reutilizable para toda la aplicación FutBase
 ///
@@ -230,18 +231,7 @@ class CEButton extends StatelessWidget {
 
   Widget _buildButtonContent() {
     if (isLoading) {
-      return SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            type == CEButtonType.primary
-                ? AppColors.textLightMain
-                : AppColors.textLightMain,
-          ),
-        ),
-      );
+      return const CELoading.button();
     }
 
     final textWidget = Text(

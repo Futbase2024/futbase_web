@@ -23,6 +23,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onLogoutRequested);
     on<AuthPasswordResetRequested>(_onPasswordResetRequested);
     on<AuthMigrateLegacyUser>(_onMigrateLegacyUser);
+    on<AuthTemporadaChanged>(_onTemporadaChanged);
 
     // Check auth status on init
     add(const AuthStatusChecked());
@@ -41,7 +42,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // User is authenticated in Supabase, get their data from tusuarios
         final user = await _getUsuarioByUid(session.user.id);
         if (user != null) {
-          emit(AuthState.authenticated(user));
+          // Obtener temporada actual desde tconfig
+          final idTemporada = await _getCurrentTemporada();
+          emit(AuthState.authenticated(user, idTemporada: idTemporada));
         } else {
           // User exists in Supabase Auth but not in tusuarios
           // This shouldn't happen, but handle gracefully
@@ -74,14 +77,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // Login successful in Supabase Auth
         final user = await _getUsuarioByUid(response.user!.id);
         if (user != null) {
-          emit(AuthState.authenticated(user));
+          // Obtener temporada actual desde tconfig
+          final idTemporada = await _getCurrentTemporada();
+          emit(AuthState.authenticated(user, idTemporada: idTemporada));
         } else {
           // Try to find by email and link
           final userByEmail = await _usuariosDataSource.getByEmail(event.email);
           if (userByEmail != null) {
             // Update uid in tusuarios
             await _updateUsuarioUid(userByEmail.id, response.user!.id);
-            emit(AuthState.authenticated(userByEmail));
+            // Obtener temporada actual desde tconfig
+            final idTemporada = await _getCurrentTemporada();
+            emit(AuthState.authenticated(userByEmail, idTemporada: idTemporada));
           } else {
             emit(AuthState.unauthenticated());
           }
@@ -148,7 +155,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
 
         final createdUser = await _usuariosDataSource.create(newUser);
-        emit(AuthState.authenticated(createdUser));
+        // Obtener temporada actual desde tconfig
+        final idTemporada = await _getCurrentTemporada();
+        emit(AuthState.authenticated(createdUser, idTemporada: idTemporada));
       } else {
         emit(AuthState.error('No se pudo crear la cuenta.'));
       }
@@ -215,7 +224,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // Get the updated user
         final user = await _usuariosDataSource.getById(event.legacyUserId.toString());
         if (user != null) {
-          emit(AuthState.authenticated(user));
+          // Obtener temporada actual desde tconfig
+          final idTemporada = await _getCurrentTemporada();
+          emit(AuthState.authenticated(user, idTemporada: idTemporada));
         } else {
           emit(AuthState.unauthenticated());
         }
@@ -231,18 +242,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   /// Get usuario from tusuarios by Supabase UID
+  /// Also loads the active role from troles where selectedrol = 1
   Future<UsuariosEntity?> _getUsuarioByUid(String uid) async {
     try {
-      final response = await _supabase
+      // First get the user from tusuarios
+      final userResponse = await _supabase
           .from('tusuarios')
           .select()
           .eq('uid', uid)
           .maybeSingle();
 
-      if (response != null) {
-        return UsuariosEntity.fromJson(response);
+      if (userResponse == null) {
+        return null;
       }
-      return null;
+
+      // Then get the active role from troles
+      final rolResponse = await _supabase
+          .from('troles')
+          .select()
+          .eq('uid', uid)
+          .eq('selectedrol', 1)
+          .maybeSingle();
+
+      // If there's an active role, use its values for idclub, idequipo, and tipo
+      if (rolResponse != null) {
+        debugPrint('AuthBloc: Found active role - tipo: ${rolResponse['tipo']}, idclub: ${rolResponse['idclub']}, idequipo: ${rolResponse['idequipo']}');
+
+        // Merge the role data into the user data
+        userResponse['idclub'] = rolResponse['idclub'] ?? userResponse['idclub'];
+        userResponse['idequipo'] = rolResponse['idequipo'] ?? userResponse['idequipo'];
+        userResponse['permisos'] = rolResponse['tipo'] ?? userResponse['permisos'];
+      } else {
+        debugPrint('AuthBloc: No active role found (selectedrol=1), using default values from tusuarios');
+      }
+
+      return UsuariosEntity.fromJson(userResponse);
     } catch (e) {
       debugPrint('AuthBloc: Error getting user by uid: $e');
       return null;
@@ -290,5 +324,38 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return 'El formato del email no es válido.';
     }
     return message;
+  }
+
+  /// Handle temporada change request
+  void _onTemporadaChanged(
+    AuthTemporadaChanged event,
+    Emitter<AuthState> emit,
+  ) {
+    final currentState = state;
+    if (currentState.isAuthenticated && currentState.user != null) {
+      debugPrint('AuthBloc: Changing temporada to ${event.idTemporada}');
+      emit(currentState.copyWith(idTemporada: event.idTemporada));
+    }
+  }
+
+  /// Get current temporada from tconfig
+  Future<int?> _getCurrentTemporada() async {
+    try {
+      final response = await _supabase
+          .from('tconfig')
+          .select('idtemporada')
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null) {
+        final idTemporada = response['idtemporada'] as int?;
+        debugPrint('AuthBloc: Current temporada from tconfig: $idTemporada');
+        return idTemporada;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('AuthBloc: Error getting current temporada: $e');
+      return null;
+    }
   }
 }

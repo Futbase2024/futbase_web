@@ -76,3 +76,13 @@ class AuthMigrateLegacyUser extends AuthEvent {
   @override
   List<Object?> get props => [email, newPassword, legacyUserId];
 }
+
+/// Change current season (temporada)
+class AuthTemporadaChanged extends AuthEvent {
+  final int idTemporada;
+
+  const AuthTemporadaChanged({required this.idTemporada});
+
+  @override
+  List<Object?> get props => [idTemporada];
+}

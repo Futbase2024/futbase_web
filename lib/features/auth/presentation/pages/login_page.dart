@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
 import '../../bloc/auth_bloc.dart';
 import '../../bloc/auth_event.dart';
 import '../../bloc/auth_state.dart';
@@ -233,15 +234,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   child: state.isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(AppColors.white),
-                          ),
-                        )
+                      ? const CELoading.button()
                       : const Text(
                           'Iniciar Sesión',
                           style: TextStyle(
@@ -388,15 +381,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   child: state.isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(AppColors.white),
-                          ),
-                        )
+                      ? const CELoading.button()
                       : const Text(
                           'Actualizar y Continuar',
                           style: TextStyle(
@@ -512,14 +497,7 @@ class _LoginPageState extends State<LoginPage> {
                       }
                     },
               child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
+                  ? const CELoading.button()
                   : const Text('Enviar'),
             ),
           ],

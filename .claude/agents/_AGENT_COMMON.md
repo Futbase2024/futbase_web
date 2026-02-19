@@ -39,6 +39,8 @@ El proyecto tiene configurado el **MCP de Dart/Flutter**. Usar estas herramienta
 - ✅ Colores con `Theme.of(context).colorScheme`
 - ✅ `LoadingOverlay` obligatorio
 - ✅ `AppLayoutBuilder` con 3 layouts
+- ✅ **`CELoading` OBLIGATORIO** - Ver `.claude/agents/ce_loading.md`
+- ❌ **NUNCA usar `CircularProgressIndicator`**
 
 ### Código
 - ✅ `context.lang` para textos

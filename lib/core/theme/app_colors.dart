@@ -2,32 +2,168 @@ import 'package:flutter/material.dart';
 
 /// Sistema de colores de FutBase 3.0
 ///
-/// Paleta basada en el diseño oficial Stitch (landing page modo claro)
-/// Primary: Verde oscuro #00554E (landing light mode)
-/// Accent: Verde neón #a4ec13 (dashboard dark mode)
+/// Paleta simplificada a 3 colores principales:
+/// - VERDE: Color principal de la app
+/// - ROJO: Color de error/alerta
+/// - GRISS: Escala de grises para textos y fondos
 class AppColors {
-  // ========== COLORES PRINCIPALES (STITCH LANDING LIGHT) ==========
+  AppColors._();
 
-  /// Color primario Landing (Stitch) - Verde oscuro #00554E
-  static const Color primary = Color(0xFF00554E);
-  static const Color primaryLight = Color(0xFF007A70);
-  static const Color primaryDark = Color(0xFF00423D);
+  // ============================================================
+  // VERDE - COLOR PRINCIPAL DE LA APP
+  // ============================================================
 
-  /// Color accent - Verde neón #a4ec13 (para modo oscuro/dashboard)
-  static const Color accent = Color(0xFFA4EC13);
-  static const Color accentLight = Color(0xFFB8F52D);
-  static const Color accentDark = Color(0xFF8BC410);
+  /// Verde principal - #00554E
+  static const Color green = Color(0xFF00554E);
 
-  /// Color primario modo claro (dashboard) - Verde oliva #6b7c4c
-  static const Color primaryLightMode = Color(0xFF6B7C4C);
-  static const Color primaryLightModeHover = Color(0xFF5A6840);
+  /// Verde claro - #007A70
+  static const Color greenLight = Color(0xFF007A70);
 
-  /// Color secundario - Verde oscuro
-  static const Color secondary = Color(0xFF4B543B);
-  static const Color secondaryLight = Color(0xFF5F6A4A);
-  static const Color secondaryDark = Color(0xFF3A412C);
+  /// Verde oscuro - #00423D
+  static const Color greenDark = Color(0xFF00423D);
 
-  // ========== TEMA OSCURO (DARK MODE) ==========
+  /// Verde accent (neón) - #A4EC13
+  static const Color greenAccent = Color(0xFFA4EC13);
+
+  /// Verde accent claro - #B8F52D
+  static const Color greenAccentLight = Color(0xFFB8F52D);
+
+  /// Verde accent oscuro - #8BC410
+  static const Color greenAccentDark = Color(0xFF8BC410);
+
+  /// Verde olive (modo claro) - #6B7C4C
+  static const Color greenOlive = Color(0xFF6B7C4C);
+
+  /// Verde olive oscuro - #5A6840
+  static const Color greenOliveDark = Color(0xFF5A6840);
+
+  /// Alias: oliveDark = greenOlive (compatibilidad)
+  static const Color oliveDark = greenOlive;
+
+  // ============================================================
+  // ROJO - COLOR DE ERROR/ALERTA
+  // ============================================================
+
+  /// Rojo principal - #FA4838
+  static const Color red = Color(0xFFFA4838);
+
+  /// Rojo claro - #F87171
+  static const Color redLight = Color(0xFFF87171);
+
+  /// Rojo oscuro - #DC2626
+  static const Color redDark = Color(0xFFDC2626);
+
+  /// Rojo más oscuro - #B91C1C
+  static const Color redDarker = Color(0xFFB91C1C);
+
+  // ============================================================
+  // GRISS - ESCALA DE GRISES
+  // ============================================================
+
+  /// Gris más claro - #F9FAFB
+  static const Color gray50 = Color(0xFFF9FAFB);
+
+  /// Gris claro - #F3F4F6
+  static const Color gray100 = Color(0xFFF3F4F6);
+
+  /// Gris 200 - #E5E7EB
+  static const Color gray200 = Color(0xFFE5E7EB);
+
+  /// Gris 300 - #D1D5DB
+  static const Color gray300 = Color(0xFFD1D5DB);
+
+  /// Gris 400 - #9CA3AF
+  static const Color gray400 = Color(0xFF9CA3AF);
+
+  /// Gris 500 - #6B7280
+  static const Color gray500 = Color(0xFF6B7280);
+
+  /// Gris 600 - #4B5563
+  static const Color gray600 = Color(0xFF4B5563);
+
+  /// Gris 700 - #374151
+  static const Color gray700 = Color(0xFF374151);
+
+  /// Gris 800 - #1F2937
+  static const Color gray800 = Color(0xFF1F2937);
+
+  /// Gris 900 - #111827
+  static const Color gray900 = Color(0xFF111827);
+
+  // ============================================================
+  // COLORES ESPECIALES
+  // ============================================================
+
+  /// Blanco puro
+  static const Color white = Color(0xFFFFFFFF);
+
+  /// Negro puro
+  static const Color black = Color(0xFF000000);
+
+  // ============================================================
+  // ALIAS SEMÁNTICOS (para compatibilidad)
+  // ============================================================
+
+  /// Color primario de la app (verde)
+  static const Color primary = green;
+
+  /// Color primario claro
+  static const Color primaryLight = greenLight;
+
+  /// Color primario oscuro
+  static const Color primaryDark = greenDark;
+
+  /// Color de acento (verde neón)
+  static const Color accent = greenAccent;
+
+  /// Color de éxito (verde)
+  static const Color success = greenAccent;
+
+  /// Color de éxito claro
+  static const Color successLight = greenAccentLight;
+
+  /// Color de éxito oscuro
+  static const Color successDark = greenOlive;
+
+  /// Color de error (rojo)
+  static const Color error = red;
+
+  /// Color de error claro
+  static const Color errorLight = redLight;
+
+  /// Color de error oscuro
+  static const Color errorDark = redDark;
+
+  /// Color de advertencia (tono rojo suave) - para avisos no críticos
+  static const Color warning = red;
+
+  /// Color de advertencia claro
+  static const Color warningLight = redLight;
+
+  /// Color de advertencia oscuro
+  static const Color warningDark = redDark;
+
+  /// Color de información (verde) - para estados informativos
+  static const Color info = greenOlive;
+
+  /// Color de información claro
+  static const Color infoLight = greenLight;
+
+  /// Color de información oscuro
+  static const Color infoDark = greenDark;
+
+  /// Color secundario (verde oscuro)
+  static const Color secondary = greenDark;
+
+  /// Color secundario claro
+  static const Color secondaryLight = green;
+
+  /// Color secundario oscuro
+  static const Color secondaryDark = greenDark;
+
+  // ============================================================
+  // FONDOS MODO OSCURO
+  // ============================================================
 
   /// Fondo principal oscuro - #12140e
   static const Color backgroundDark = Color(0xFF12140E);
@@ -44,42 +180,34 @@ class AppColors {
   /// Borde oscuro - #333928
   static const Color borderDark = Color(0xFF333928);
 
-  /// Borde claro oscuro - #4b543b
+  /// Borde oscuro claro (alias) - #4b543b
   static const Color borderDarkLight = Color(0xFF4B543B);
 
-  // ========== TEMA CLARO (LIGHT MODE) ==========
+  // ============================================================
+  // FONDOS MODO CLARO
+  // ============================================================
 
-  /// Fondo principal claro - #ffffff (landing-blanco.html)
-  static const Color backgroundLight = Color(0xFFFFFFFF);
+  /// Fondo principal claro
+  static const Color backgroundLight = white;
 
-  /// Superficie clara - #f8fafc
-  static const Color surfaceLight = Color(0xFFF8FAFC);
+  /// Superficie clara
+  static const Color surfaceLight = gray50;
 
   /// Fondo de cards claro
-  static const Color cardLight = Color(0xFFFFFFFF);
+  static const Color cardLight = white;
 
-  /// Borde claro - #e2e8f0
-  static const Color borderLight = Color(0xFFE2E8F0);
-
-  /// Borde claro más oscuro
-  static const Color borderLightDark = Color(0xFFD1D5DB);
+  /// Borde claro
+  static const Color borderLight = gray200;
 
   /// Sidebar claro
-  static const Color sidebarLight = Color(0xFFFFFFFF);
+  static const Color sidebarLight = white;
 
-  /// Texto principal modo claro (charcoal) - #1e293b
-  static const Color textLightMain = Color(0xFF1E293B);
+  // ============================================================
+  // TEXTOS
+  // ============================================================
 
-  /// Texto secundario modo claro - slate-600 #475569
-  static const Color textLightMuted = Color(0xFF475569);
-
-  /// Color olive dark para acentos - #6a9a08
-  static const Color oliveDark = Color(0xFF6A9A08);
-
-  // ========== ESCALA DE TEXTOS OSCUROS ==========
-
-  /// Texto principal (blanco)
-  static const Color textPrimary = Color(0xFFFFFFFF);
+  /// Texto principal (blanco para dark mode)
+  static const Color textPrimary = white;
 
   /// Texto secundario - #b0b99d
   static const Color textSecondary = Color(0xFFB0B99D);
@@ -87,48 +215,15 @@ class AppColors {
   /// Texto terciario - #6B7A5A
   static const Color textTertiary = Color(0xFF6B7A5A);
 
-  // ========== ESCALA DE GRISES (para modo claro) ==========
+  /// Texto principal modo claro
+  static const Color textLightMain = gray900;
 
-  static const Color gray50 = Color(0xFFF9FAFB);
-  static const Color gray100 = Color(0xFFF3F4F6);
-  static const Color gray200 = Color(0xFFE5E7EB);
-  static const Color gray300 = Color(0xFFD1D5DB);
-  static const Color gray400 = Color(0xFF9CA3AF);
-  static const Color gray500 = Color(0xFF6B7280);
-  static const Color gray600 = Color(0xFF4B5563);
-  static const Color gray700 = Color(0xFF374151);
-  static const Color gray800 = Color(0xFF1F2937);
-  static const Color gray900 = Color(0xFF111827);
+  /// Texto secundario modo claro
+  static const Color textLightMuted = gray500;
 
-  // ========== COLORES SEMÁNTICOS (ESTADOS) ==========
-
-  /// Success - Verde #0bda2a
-  static const Color success = Color(0xFF0BDA2A);
-  static const Color successLight = Color(0xFF34D399);
-  static const Color successDark = Color(0xFF059669);
-
-  /// Warning - Amber #F59E0B
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningLight = Color(0xFFFBBF24);
-  static const Color warningDark = Color(0xFFD97706);
-
-  /// Error - Rojo #fa4838
-  static const Color error = Color(0xFFFA4838);
-  static const Color errorLight = Color(0xFFF87171);
-  static const Color errorDark = Color(0xFFDC2626);
-
-  /// Info - Azul #3B82F6
-  static const Color info = Color(0xFF3B82F6);
-  static const Color infoLight = Color(0xFF60A5FA);
-  static const Color infoDark = Color(0xFF2563EB);
-
-  // ========== COLORES ESPECIALES ==========
-
-  /// Blanco puro
-  static const Color white = Color(0xFFFFFFFF);
-
-  /// Negro puro
-  static const Color black = Color(0xFF000000);
+  // ============================================================
+  // FONDOS POR DEFECTO
+  // ============================================================
 
   /// Fondo principal (por defecto oscuro)
   static const Color background = backgroundDark;
@@ -136,13 +231,15 @@ class AppColors {
   /// Fondo de superficie (cards, modales)
   static const Color surface = cardDark;
 
-  // ========== GRADIENTES ==========
+  // ============================================================
+  // GRADIENTES
+  // ============================================================
 
   /// Gradiente primario (hero sections)
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primary, primaryLight],
+    colors: [green, greenLight],
   );
 
   /// Gradiente radial para fondos
@@ -150,20 +247,18 @@ class AppColors {
     center: Alignment.center,
     radius: 0.5,
     colors: [
-      Color(0x14A4EC13), // primary con 8% opacidad
+      Color(0x14A4EC13), // greenAccent con 8% opacidad
       Colors.transparent,
     ],
   );
 
-  // ========== COLORES CON OPACIDAD ==========
+  // ============================================================
+  // COLORES CON OPACIDAD
+  // ============================================================
 
   /// Primary con opacidad
   static Color primaryWithOpacity(double opacity) =>
       primary.withValues(alpha: opacity);
-
-  /// Secondary con opacidad
-  static Color secondaryWithOpacity(double opacity) =>
-      secondary.withValues(alpha: opacity);
 
   /// Black con opacidad (útil para overlays)
   static Color blackWithOpacity(double opacity) =>
@@ -173,7 +268,9 @@ class AppColors {
   static Color whiteWithOpacity(double opacity) =>
       white.withValues(alpha: opacity);
 
-  // ========== SOMBRAS ==========
+  // ============================================================
+  // SOMBRAS
+  // ============================================================
 
   /// Sombra suave para cards (modo oscuro)
   static List<BoxShadow> cardShadow = [
@@ -213,7 +310,7 @@ class AppColors {
     ),
   ];
 
-  /// Sombra suave para cards modo claro (shadow-soft)
+  /// Sombra suave para cards modo claro
   static List<BoxShadow> cardShadowLight = [
     BoxShadow(
       color: black.withValues(alpha: 0.07),
@@ -227,19 +324,18 @@ class AppColors {
     ),
   ];
 
-  // ========== HELPERS PARA DARK/LIGHT ==========
+  // ============================================================
+  // HELPERS PARA DARK/LIGHT
+  // ============================================================
 
   /// Obtiene el color primario según el tema
-  /// Para landing page: siempre usa primary (#a4ec13)
-  /// Para dashboard: usa olive en modo claro
-  static Color primaryColor(bool isDark) =>
-      isDark ? primary : primaryLightMode;
+  static Color primaryColor(bool isDark) => isDark ? green : greenOlive;
 
-  /// Color primario para landing (siempre #a4ec13)
-  static const Color landingPrimary = primary;
+  /// Color primario para landing (siempre verde)
+  static const Color landingPrimary = green;
 
-  /// Color de acento para landing en modo claro (oliveDark)
-  static const Color landingAccent = oliveDark;
+  /// Color de acento para landing
+  static const Color landingAccent = greenOlive;
 
   /// Obtiene el color de fondo según el tema
   static Color backgroundColor(bool isDark) =>

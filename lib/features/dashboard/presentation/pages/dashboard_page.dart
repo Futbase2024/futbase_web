@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/user_roles.dart';
 import '../widgets/widgets.dart';
 import '../widgets/dashboards/dashboards.dart';
 import '../../../auth/bloc/auth_bloc.dart';
 import '../../../auth/bloc/auth_event.dart';
+import '../../../players/presentation/widgets/players_content.dart';
+import '../../../trainings/presentation/widgets/trainings_content.dart';
+import '../../../matches/presentation/widgets/matches_content.dart';
 
 /// Página principal del Dashboard
 ///
@@ -21,12 +26,58 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   String _selectedNavItem = 'dashboard';
+  bool _isSidebarCollapsed = false;
+  String? _equipoName;
+  String? _clubName;
+  String? _clubEscudo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEquipoData();
+  }
+
+  Future<void> _loadEquipoData() async {
+    final authState = context.read<AuthBloc>().state;
+    final user = authState.user;
+
+    if (user != null && authState.role == UserRole.entrenador && user.idequipo > 0) {
+      try {
+        // Obtener datos del equipo
+        final equipoResponse = await Supabase.instance.client
+            .from('tequipos')
+            .select('equipo, idclub')
+            .eq('id', user.idequipo)
+            .maybeSingle();
+
+        if (equipoResponse != null && mounted) {
+          final idclub = equipoResponse['idclub'];
+
+          // Obtener datos del club
+          final clubResponse = await Supabase.instance.client
+              .from('tclubes')
+              .select('club, escudo')
+              .eq('id', idclub)
+              .maybeSingle();
+
+          setState(() {
+            _equipoName = equipoResponse['equipo'] as String?;
+            _clubName = clubResponse?['club'] as String?;
+            _clubEscudo = clubResponse?['escudo'] as String?;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error loading equipo data: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
     final user = authState.user;
     final role = authState.role;
+    final idTemporada = authState.idTemporada ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFB),
@@ -35,6 +86,10 @@ class _DashboardPageState extends State<DashboardPage> {
           // Sidebar
           DashboardSidebar(
             selectedItem: _selectedNavItem,
+            isCollapsed: _isSidebarCollapsed,
+            onToggleCollapse: () {
+              setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
+            },
             onItemTap: (item) {
               setState(() => _selectedNavItem = item);
             },
@@ -51,12 +106,14 @@ class _DashboardPageState extends State<DashboardPage> {
                 // Header
                 DashboardHeader(
                   title: _getHeaderTitle(role),
+                  subtitle: _getHeaderSubtitle(role),
+                  escudoUrl: _getHeaderEscudo(role),
                 ),
                 // Content - Dashboard según rol
                 Expanded(
                   child: Container(
                     color: const Color(0xFFF8FAFB),
-                    child: _buildDashboardContent(role, user),
+                    child: _buildDashboardContent(role, user, idTemporada),
                   ),
                 ),
               ],
@@ -76,13 +133,49 @@ class _DashboardPageState extends State<DashboardPage> {
       case UserRole.coordinador:
         return 'Panel de Coordinación';
       case UserRole.entrenador:
-        return 'Mi Equipo';
+        return _equipoName ?? 'Cargando equipo...';
       default:
         return 'Panel Principal';
     }
   }
 
-  Widget _buildDashboardContent(UserRole? role, dynamic user) {
+  String? _getHeaderSubtitle(UserRole? role) {
+    if (role == UserRole.entrenador) {
+      return _clubName;
+    }
+    return null;
+  }
+
+  String? _getHeaderEscudo(UserRole? role) {
+    if (role == UserRole.entrenador) {
+      return _clubEscudo;
+    }
+    return null;
+  }
+
+  Widget _buildDashboardContent(UserRole? role, UsuariosEntity? user, int idTemporada) {
+    // Si no hay usuario, mostrar error
+    if (user == null) {
+      return const Center(
+        child: Text('Error: Usuario no encontrado'),
+      );
+    }
+
+    // Si es players, mostrar contenido de jugadores
+    if (_selectedNavItem == 'players') {
+      return PlayersContent(user: user);
+    }
+
+    // Si es training, mostrar contenido de entrenamientos
+    if (_selectedNavItem == 'training') {
+      return TrainingsContent(user: user);
+    }
+
+    // Si es matches, mostrar contenido de partidos
+    if (_selectedNavItem == 'matches') {
+      return MatchesContent(user: user, idTemporada: idTemporada);
+    }
+
     // Si no está en dashboard, mostrar placeholder
     if (_selectedNavItem != 'dashboard') {
       return _buildPlaceholderContent();

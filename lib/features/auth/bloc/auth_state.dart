@@ -17,12 +17,14 @@ class AuthState extends Equatable {
   final UsuariosEntity? user;
   final String? errorMessage;
   final bool isLoading;
+  final int? idTemporada; // Temporada actual desde tconfig
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.errorMessage,
     this.isLoading = false,
+    this.idTemporada,
   });
 
   // Factory constructors for different states
@@ -30,9 +32,11 @@ class AuthState extends Equatable {
 
   factory AuthState.checking() => const AuthState(status: AuthStatus.checking);
 
-  factory AuthState.authenticated(UsuariosEntity user) => AuthState(
+  factory AuthState.authenticated(UsuariosEntity user, {int? idTemporada}) =>
+      AuthState(
         status: AuthStatus.authenticated,
         user: user,
+        idTemporada: idTemporada,
       );
 
   factory AuthState.unauthenticated() => const AuthState(
@@ -42,7 +46,8 @@ class AuthState extends Equatable {
   factory AuthState.needsMigration({
     required String email,
     required int legacyUserId,
-  }) => AuthState(
+  }) =>
+      AuthState(
         status: AuthStatus.needsMigration,
         errorMessage: email,
         user: UsuariosEntity(
@@ -88,19 +93,21 @@ class AuthState extends Equatable {
   UserRole get roleOrDefault => role ?? UserRole.entrenador;
 
   @override
-  List<Object?> get props => [status, user, errorMessage, isLoading];
+  List<Object?> get props => [status, user, errorMessage, isLoading, idTemporada];
 
   AuthState copyWith({
     AuthStatus? status,
     UsuariosEntity? user,
     String? errorMessage,
     bool? isLoading,
+    int? idTemporada,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
       errorMessage: errorMessage ?? this.errorMessage,
       isLoading: isLoading ?? this.isLoading,
+      idTemporada: idTemporada ?? this.idTemporada,
     );
   }
 }

@@ -7,7 +7,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/routing/app_router.dart';
-import '../../../../shared/widgets/ce_button.dart';
+import '../../../../shared/widgets/shared_widgets.dart';
 
 /// Hero Section - Sección principal de la landing page
 ///
@@ -378,9 +378,7 @@ class HeroSection extends StatelessWidget {
                   height: double.infinity,
                   placeholder: (context, url) => Container(
                     color: AppColors.gray100,
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    child: const CELoading.inline(),
                   ),
                   errorWidget: (context, url, error) => Container(
                     color: AppColors.gray100,

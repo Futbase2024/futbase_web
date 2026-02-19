@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../shared/widgets/shared_widgets.dart';
 
 /// Dashboard para SuperAdmin con estadísticas globales del sistema
 class SuperAdminDashboard extends StatefulWidget {
@@ -51,7 +52,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         _supabase.from('tequipos').select('id'),
         _supabase.from('tjugadores').select('id'),
         _supabase.from('tentrenamientos').select('id'),
-        _supabase.from('tpartidos').select('id'),
+        _supabase.from('vpartido').select('id'),
         _supabase.from('tcuotas').select('id'),
         _supabase.from('tequipos').select('idcategoria'),
         _supabase.from('tusuarios').select('permisos'),
@@ -104,7 +105,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const CELoading.inline();
     }
 
     if (_error != null) {

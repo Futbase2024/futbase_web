@@ -14,6 +14,8 @@ class DashboardHeader extends StatelessWidget {
   const DashboardHeader({
     super.key,
     this.title = 'Panel Principal',
+    this.subtitle,
+    this.escudoUrl,
     this.searchHint = 'Buscar jugadores, equipos...',
     this.onSearchChanged,
     this.onNotificationsTap,
@@ -21,6 +23,8 @@ class DashboardHeader extends StatelessWidget {
   });
 
   final String title;
+  final String? subtitle;
+  final String? escudoUrl;
   final String searchHint;
   final ValueChanged<String>? onSearchChanged;
   final VoidCallback? onNotificationsTap;
@@ -39,14 +43,43 @@ class DashboardHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Title
-          Text(
-            title,
-            style: AppTypography.h6.copyWith(
-              color: AppColors.gray800,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
+          // Escudo (si existe)
+          if (escudoUrl != null && escudoUrl!.isNotEmpty) ...[
+            SizedBox(
+              width: 44,
+              height: 44,
+              child: Image.network(
+                escudoUrl!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Image.asset(
+                  'lib/assets/icons/icono.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
+            const SizedBox(width: 14),
+          ],
+          // Title y subtitle
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTypography.h6.copyWith(
+                  color: AppColors.gray800,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.gray500,
+                  ),
+                ),
+            ],
           ),
           const Spacer(),
           // Search

@@ -4,6 +4,7 @@ import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../shared/widgets/shared_widgets.dart';
 
 /// Dashboard para Coordinadores con estadísticas de las categorías que coordina
 class CoordinadorDashboard extends StatefulWidget {
@@ -108,7 +109,7 @@ class _CoordinadorDashboardState extends State<CoordinadorDashboard> {
       int partidosProximos = 0;
       if (equipoIds.isNotEmpty) {
         final partidosData = await _supabase
-            .from('tpartidos')
+            .from('vpartido')
             .select('id, fecha')
             .inFilter('idequipo', equipoIds);
 
@@ -141,7 +142,7 @@ class _CoordinadorDashboardState extends State<CoordinadorDashboard> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const CELoading.inline();
     }
 
     if (_error != null) {

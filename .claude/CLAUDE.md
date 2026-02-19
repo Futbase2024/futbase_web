@@ -70,6 +70,7 @@ dart run build_runner build --delete-conflicting-outputs && dart fix --apply
 - ❌ **NO crear métodos que devuelvan Widget** (usar clases separadas)
 - ❌ NO usar `_buildX()` patterns - extraer a widgets dedicados
 - ❌ **NO comenzar tareas no triviales sin crear plan en `.claude/plans/`**
+- ❌ **NO usar tablas directamente en SELECT sin verificar si existe vista** (ver `supabase_view_checker.md`)
 
 ### ✅ OBLIGACIONES
 
@@ -80,6 +81,143 @@ dart run build_runner build --delete-conflicting-outputs && dart fix --apply
 - ✅ Implementaciones en data/repositories
 - ✅ Tests con cobertura 85%+
 - ✅ `dart fix --apply` después de cada cambio
+- ✅ **VERIFICAR VISTAS EN SUPABASE** antes de usar tablas en operaciones de lectura (SELECT)
+
+### 🎨 Reglas de UI/Diseño
+
+- ✅ **TODOS los iconos en tarjetas KPI deben usar `AppColors.primary`** (mismo color para mantener consistencia visual)
+- ✅ **Tarjetas KPI deben expandirse equitativamente** usando `Row` + `Expanded` (no ancho fijo)
+- ✅ **Tarjetas en filas deben tener la MISMA ALTURA** usando `IntrinsicHeight` + `crossAxisAlignment: CrossAxisAlignment.stretch`
+- ✅ Usar SIEMPRE `AppColors` para colores, nunca hardcodear valores hexadecimales
+
+### ⚽ Widget de Loading OBLIGATORIO (CELoading)
+
+**REGLA CRÍTICA**: SIEMPRE usar `CELoading` en lugar de `CircularProgressIndicator` en toda la aplicación.
+
+#### ❌ PROHIBIDO
+```dart
+// ❌ NUNCA usar CircularProgressIndicator
+const CircularProgressIndicator()
+const Center(child: CircularProgressIndicator())
+CircularProgressIndicator(strokeWidth: 2)
+```
+
+#### ✅ OBLIGATORIO
+```dart
+import 'package:futbase/shared/widgets/shared_widgets.dart';
+
+// ✅ Loading a pantalla completa (splash, inicialización)
+const CELoading.fullscreen(message: 'Cargando...')
+
+// ✅ Loading inline para estados de carga en páginas
+const CELoading.inline()
+const CELoading.inline(message: 'Cargando jugadores...')
+
+// ✅ Loading para botones
+const CELoading.button()
+// O con color personalizado:
+const CELoading.button(color: AppColors.white)
+
+// ✅ Loading con overlay (modal, diálogos)
+const CELoading.overlay(message: 'Guardando cambios...')
+```
+
+#### Variantes disponibles
+
+| Variante | Uso | Tamaño por defecto |
+|----------|-----|-------------------|
+| `.fullscreen` | Splash screens, carga inicial de app | 64px |
+| `.inline` | Estados de carga en páginas, listas | 32px |
+| `.button` | Dentro de botones mientras procesan | 20px |
+| `.overlay` | Modales, diálogos de espera | 48px |
+
+#### Ejemplo en BLoC Builder
+```dart
+BlocBuilder<PlayersBloc, PlayersState>(
+  builder: (context, state) {
+    return state.when(
+      initial: () => const CELoading.inline(),
+      loading: () => const CELoading.inline(message: 'Cargando...'),
+      loaded: (players) => PlayersList(players: players),
+      error: (message) => ErrorView(message: message),
+    );
+  },
+)
+```
+
+---
+
+### ⚠️ Widget de Diálogos de Información OBLIGATORIO (CeInfoDialog)
+
+**REGLA CRÍTICA**: SIEMPRE usar `CeInfoDialog` para mostrar alertas, errores, warnings o confirmaciones al usuario. NUNCA usar SnackBar para mensajes críticos.
+
+#### ❌ PROHIBIDO
+```dart
+// ❌ NUNCA usar SnackBar para mensajes críticos
+ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(content: Text('Error al guardar')),
+);
+```
+
+#### ✅ OBLIGATORIO
+```dart
+import 'package:futbase/shared/widgets/shared_widgets.dart';
+
+// ✅ Diálogo de error
+await CeInfoDialog.error(
+  context,
+  title: 'Error',
+  message: 'No se pudo guardar el dorsal',
+);
+
+// ✅ Diálogo de advertencia
+await CeInfoDialog.warning(
+  context,
+  title: 'Dorsal duplicado',
+  message: 'El dorsal 10 ya está asignado a otro jugador',
+);
+
+// ✅ Diálogo de éxito
+await CeInfoDialog.success(
+  context,
+  title: 'Guardado',
+  message: 'Los cambios se han guardado correctamente',
+);
+
+// ✅ Diálogo de información
+await CeInfoDialog.info(
+  context,
+  title: 'Información',
+  message: 'El jugador ha sido convocado',
+);
+
+// ✅ Diálogo de confirmación (retorna bool)
+final confirmed = await CeConfirmDialog.show(
+  context,
+  title: '¿Eliminar jugador?',
+  message: 'Esta acción no se puede deshacer',
+  confirmText: 'Eliminar',
+  cancelText: 'Cancelar',
+);
+if (confirmed) {
+  // Usuario confirmó
+}
+```
+
+#### Tipos disponibles
+
+| Tipo | Color | Icono | Uso |
+|------|-------|-------|-----|
+| `.error` | Rojo | `Icons.error_outline` | Errores críticos |
+| `.warning` | Rojo | `Icons.warning_amber_rounded` | Advertencias, validaciones |
+| `.success` | Verde | `Icons.check_circle_outline` | Confirmaciones de éxito |
+| `.info` | Verde olive | `Icons.info_outline` | Información general |
+
+#### Cuándo usar cada tipo
+- **Error**: Operaciones que fallaron (guardar, cargar, eliminar)
+- **Warning**: Validaciones, conflictos (duplicados, datos inválidos)
+- **Success**: Confirmaciones importantes (guardado exitoso)
+- **Info**: Mensajes informativos no críticos
 
 ---
 
@@ -1047,6 +1185,7 @@ Este proyecto utiliza un sistema de subagentes especializados orquestados desde 
 | 🖼️ UI/UX Designer | `agents/uiux_designer.md` | Diseño interfaces Apple-style |
 | 🏗️ Feature Generator | `agents/feature_generator.md` | Crear features completas |
 | 🗄️ Supabase Specialist | `agents/supabase_specialist.md` | DB, queries, MCP integration |
+| 🔍 Supabase View Checker | `agents/supabase_view_checker.md` | Verificar vistas antes de usar tablas |
 | 🧪 QA Validation | `agents/qa_validation.md` | Testing, coverage, quality |
 
 Ver `orchestrator.md` para detalles de coordinación.

@@ -4,6 +4,7 @@ import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../shared/widgets/shared_widgets.dart';
 
 /// Dashboard para administradores de Club con estadísticas de su club
 class ClubDashboard extends StatefulWidget {
@@ -32,6 +33,9 @@ class _ClubDashboardState extends State<ClubDashboard> {
   int _totalPartidos = 0;
   int _entrenamientosSemana = 0;
   int _partidosProximos = 0;
+  int _golesTemporada = 0;
+  int _partidosFinalizadosTemporada = 0;
+  double _golesPorPartido = 0.0;
 
   // Lista de equipos
   List<Map<String, dynamic>> _equipos = [];
@@ -107,9 +111,12 @@ class _ClubDashboardState extends State<ClubDashboard> {
       // Contar partidos del club
       int totalPartidos = 0;
       int partidosProximos = 0;
+      int golesTemporada = 0;
+      int partidosFinalizadosTemporada = 0;
+
       if (equipoIds.isNotEmpty) {
         final partidosData = await _supabase
-            .from('tpartidos')
+            .from('vpartido')
             .select('id, fecha')
             .inFilter('idequipo', equipoIds);
         totalPartidos = partidosData.length;
@@ -120,7 +127,41 @@ class _ClubDashboardState extends State<ClubDashboard> {
           final fecha = DateTime.tryParse(e['fecha']?.toString() ?? '');
           return fecha != null && fecha.isAfter(ahora);
         }).length;
+
+        // Obtener temporada actual para calcular goles por partido
+        final configData = await _supabase
+            .from('tconfig')
+            .select('idtemporada')
+            .limit(1)
+            .maybeSingle();
+
+        if (configData != null) {
+          final idTemporadaActual = configData['idtemporada'] as int?;
+
+          if (idTemporadaActual != null) {
+            // Obtener partidos finalizados de la temporada actual con datos de goles
+            final partidosTemporadaData = await _supabase
+                .from('vpartido')
+                .select('id, casafuera, goles, golesrival, finalizado')
+                .inFilter('idequipo', equipoIds)
+                .eq('idtemporada', idTemporadaActual)
+                .eq('finalizado', true);
+
+            for (final partido in partidosTemporadaData as List) {
+              // En vpartido, 'goles' siempre son los goles del equipo
+              // y 'golesrival' los del rival, independientemente de local/visitante
+              final golesEquipo = partido['goles'] as int? ?? 0;
+              golesTemporada += golesEquipo;
+              partidosFinalizadosTemporada++;
+            }
+          }
+        }
       }
+
+      // Calcular goles por partido
+      final golesPorPartido = partidosFinalizadosTemporada > 0
+          ? golesTemporada / partidosFinalizadosTemporada
+          : 0.0;
 
       setState(() {
         _clubName = clubData?['club'] ?? 'Club desconocido';
@@ -130,6 +171,9 @@ class _ClubDashboardState extends State<ClubDashboard> {
         _totalPartidos = totalPartidos;
         _entrenamientosSemana = entrenamientosSemana;
         _partidosProximos = partidosProximos;
+        _golesTemporada = golesTemporada;
+        _partidosFinalizadosTemporada = partidosFinalizadosTemporada;
+        _golesPorPartido = golesPorPartido;
         _equipos = List<Map<String, dynamic>>.from(equiposData);
         _isLoading = false;
       });
@@ -145,7 +189,7 @@ class _ClubDashboardState extends State<ClubDashboard> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const CELoading.inline();
     }
 
     if (_error != null) {
@@ -238,6 +282,13 @@ class _ClubDashboardState extends State<ClubDashboard> {
           subtitle: '$_partidosProximos próximos',
           color: AppColors.warning,
         ),
+        _buildKpiCard(
+          icon: Icons.sports_score,
+          title: 'Goles por Partido',
+          value: _golesPorPartido.toStringAsFixed(1),
+          subtitle: '$_golesTemporada goles en $_partidosFinalizadosTemporada partidos',
+          color: AppColors.accent,
+        ),
       ],
     );
   }
@@ -280,9 +331,9 @@ class _ClubDashboardState extends State<ClubDashboard> {
               children: [
                 Text(
                   value,
-                  style: AppTypography.h3.copyWith(
+                  style: AppTypography.h2.copyWith(
                     color: AppColors.gray900,
-                    fontWeight: FontWeight.w700,
+                    height: 1.0,
                   ),
                 ),
                 Text(
