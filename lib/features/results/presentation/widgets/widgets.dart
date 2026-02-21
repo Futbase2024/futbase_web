@@ -1,6 +1,7 @@
 /// Barrel file para widgets de Resultados
 library;
 
+export 'match_detail_dialog.dart';
 export 'results_content.dart';
 export 'results_date_group.dart';
 export 'results_empty_state.dart';

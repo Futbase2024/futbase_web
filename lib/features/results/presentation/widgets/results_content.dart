@@ -10,6 +10,7 @@ import '../../../auth/bloc/auth_bloc.dart';
 import '../../bloc/results_bloc.dart';
 import '../../bloc/results_event.dart';
 import '../../bloc/results_state.dart';
+import 'match_detail_dialog.dart';
 import 'weekly_navigation.dart';
 import 'weekly_calendar_grid.dart';
 import 'results_empty_state.dart';
@@ -304,22 +305,24 @@ class _ProfessionalMatchCard extends StatelessWidget {
       accentColorLight = AppColors.gray50;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.gray900.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Row(
-          children: [
+    return GestureDetector(
+      onTap: () => _showMatchDetail(context),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.gray900.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            children: [
             // Barra de acento lateral (4px)
             Container(
               width: 4,
@@ -484,6 +487,14 @@ class _ProfessionalMatchCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  void _showMatchDetail(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => MatchDetailDialog(match: match),
     );
   }
 }

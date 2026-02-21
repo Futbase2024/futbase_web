@@ -590,8 +590,8 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
     final effectiveY = posY ?? _getDefaultYPosition(posicion);
 
     // Calcular posición en píxeles directamente desde BD
-    const playerWidth = 50.0;
-    const playerHeight = 65.0;
+    const playerWidth = 55.0;
+    const playerHeight = 75.0;
 
     // Offset para ajustar posición visual (más abajo y más a la derecha)
     const offsetX = 0.03; // 3% a la derecha
@@ -721,7 +721,7 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
 
     return SizedBox(
       width: 55,
-      height: 70,
+      height: 75,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -781,22 +781,27 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
             ),
           ),
           const SizedBox(height: 2),
-          // Nombre del jugador
-          Text(
-            nombre.length > 8 ? '${nombre.substring(0, 7)}.' : nombre,
-            style: AppTypography.labelSmall.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 2,
+          // Nombre del jugador - sin truncar, con ajuste automático
+          SizedBox(
+            width: 55,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                nombre,
+                style: AppTypography.labelSmall.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 2,
+                    ),
+                  ],
                 ),
-              ],
+                textAlign: TextAlign.center,
+                maxLines: 1,
+              ),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
