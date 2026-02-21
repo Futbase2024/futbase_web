@@ -398,11 +398,54 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     try {
       debugPrint('⚽ [MatchesBloc] Cargando alineación (idpartido=${event.idpartido})');
 
+      // Cargar camisetas del partido
+      String? camisetaUrl;
+      String? camisetaPorteroUrl;
+      int dorsalColor = 0;
+
+      final partidoData = await _supabase
+          .from('tpartidos')
+          .select('camiseta, camisetapor')
+          .eq('id', event.idpartido)
+          .maybeSingle();
+
+      if (partidoData != null) {
+        final camisetaId = partidoData['camiseta'] as int?;
+        final camisetaporId = partidoData['camisetapor'] as int?;
+
+        // Cargar URLs de camisetas desde tcamisetas
+        if (camisetaId != null || camisetaporId != null) {
+          final camisetaIds = [camisetaId, camisetaporId].whereType<int>().toList();
+          if (camisetaIds.isNotEmpty) {
+            final camisetasData = await _supabase
+                .from('tcamisetas')
+                .select('id, url, idcolor')
+                .inFilter('id', camisetaIds);
+
+            for (final cam in camisetasData as List) {
+              final id = cam['id'] as int;
+              final url = cam['url'] as String?;
+              final color = cam['idcolor'] as int? ?? 0;
+
+              if (id == camisetaId) {
+                camisetaUrl = url;
+                dorsalColor = color;
+              }
+              if (id == camisetaporId) {
+                camisetaPorteroUrl = url;
+              }
+            }
+          }
+        }
+      }
+
+      debugPrint('⚽ [MatchesBloc] Camiseta: $camisetaUrl, Portero: $camisetaPorteroUrl, Color dorsal: $dorsalColor');
+
       // Cargar TODOS los jugadores convocados para este partido
       // No filtramos por idequipo para incluir jugadores de cualquier equipo
       final lineupResponse = await _supabase
           .from('vpartidosjugadores')
-          .select('idjugador, titular, mentra, apodo, dorsal, posicion, foto, convocado, "posX", "posY"')
+          .select('idjugador, titular, mentra, apodo, dorsal, posicion, foto, convocado, posx, posy')
           .eq('idpartido', event.idpartido)
           .eq('convocado', 1) // Solo convocados
           .order('dorsal');
@@ -416,6 +459,9 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
           lineup: {},
           minutosEntrada: {},
           minutosSalida: {},
+          camisetaUrl: camisetaUrl,
+          camisetaPorteroUrl: camisetaPorteroUrl,
+          dorsalColor: dorsalColor,
         ));
         return;
       }
@@ -451,16 +497,16 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         lineup[idJugador] = (line['titular'] as int?) == 1;
         minutosEntrada[idJugador] = line['mentra'] as int?;
         minutosSalida[idJugador] = null;
-        // Cargar posiciones (convertir a double)
-        posX[idJugador] = line['posX'] != null ? (line['posX'] as num).toDouble() : null;
-        posY[idJugador] = line['posY'] != null ? (line['posY'] as num).toDouble() : null;
+        // Cargar posiciones directamente de la BD (ya normalizadas 0-1)
+        posX[idJugador] = line['posx'] != null ? (line['posx'] as num).toDouble() : null;
+        posY[idJugador] = line['posy'] != null ? (line['posy'] as num).toDouble() : null;
       }
 
       debugPrint('⚽ [MatchesBloc] Cargados ${players.length} jugadores convocados');
 
       // 📍 LOG DETALLADO DE POSICIONES
       debugPrint('═══════════════════════════════════════════════════════════');
-      debugPrint('📍 [MATCHES BLOC] POSICIONES CARGADAS DE BD:');
+      debugPrint('📍 [MATCHES BLOC] POSICIONES CARGADAS DE BD (ya normalizadas 0-1):');
       for (final line in lineupResponse) {
         final id = line['idjugador'] as int;
         final nombre = players.firstWhere((p) => p['id'] == id, orElse: () => <String, dynamic>{})['nombre'] ?? '?';
@@ -468,7 +514,7 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         final pX = posX[id];
         final pY = posY[id];
         final posicion = players.firstWhere((p) => p['id'] == id, orElse: () => <String, dynamic>{})['posicion'] ?? 'Sin posición';
-        debugPrint('  👤 Jugador #$id "$nombre" | ${esTitular ? "TITULAR" : "SUPLENTE"} | Posición: $posicion | posX=$pX | posY=$pY');
+        debugPrint('  👤 #$id "$nombre" | ${esTitular ? "TITULAR" : "SUPLENTE"} | $posicion | posX=$pX | posY=$pY');
       }
       debugPrint('═══════════════════════════════════════════════════════════');
 
@@ -480,6 +526,9 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         minutosSalida: minutosSalida,
         posX: posX,
         posY: posY,
+        camisetaUrl: camisetaUrl,
+        camisetaPorteroUrl: camisetaPorteroUrl,
+        dorsalColor: dorsalColor,
       ));
     } catch (e) {
       debugPrint('⚽ [MatchesBloc] Error al cargar alineación: $e');
@@ -538,10 +587,10 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
           'idpartido': event.idpartido,
           'idjugador': entry.key,
           'titular': entry.value ? 1 : 0,
-          'convocado': 1, // Si está en la alineación, está convocado
+          'convocado': 1,
           'mentra': event.minutosEntrada[entry.key],
-          'posX': event.posX[entry.key],
-          'posY': event.posY[entry.key],
+          'posx': event.posX[entry.key],
+          'posy': event.posY[entry.key],
         });
       }
 

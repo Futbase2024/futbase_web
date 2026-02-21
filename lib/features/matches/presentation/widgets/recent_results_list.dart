@@ -12,11 +12,15 @@ class RecentResultsList extends StatelessWidget {
     required this.matches,
     required this.competitions,
     this.onTap,
+    this.onVerHistorial,
+    this.showAll = false,
   });
 
   final List<Map<String, dynamic>> matches;
   final Map<int, String> competitions;
   final void Function(Map<String, dynamic>)? onTap;
+  final VoidCallback? onVerHistorial;
+  final bool showAll;
 
   @override
   Widget build(BuildContext context) {
@@ -60,24 +64,20 @@ class RecentResultsList extends StatelessWidget {
                 ),
               )),
 
-        // Botón ver historial
-        if (matches.isNotEmpty)
+        // Botón ver historial (solo si no se están mostrando todos)
+        if (matches.isNotEmpty && !showAll)
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {},
+            child: OutlinedButton.icon(
+              onPressed: onVerHistorial,
+              icon: const Icon(Icons.history, size: 18),
+              label: const Text('Ver todo el Historial'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: BorderSide(color: AppColors.gray100),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Ver todo el Historial',
-                style: AppTypography.labelSmall.copyWith(
-                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

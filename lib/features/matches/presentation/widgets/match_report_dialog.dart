@@ -7,6 +7,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 
 /// Diálogo profesional con el informe completo del partido
+/// Diseño optimizado para web con layout de 2 columnas
 class MatchReportDialog extends StatefulWidget {
   const MatchReportDialog({
     super.key,
@@ -57,12 +58,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
         _events = (futures[1] as List).cast<Map<String, dynamic>>();
         _isLoading = false;
       });
-
-      // Debug: mostrar estructura de eventos
-      if (_events.isNotEmpty) {
-        debugPrint('📊 [MatchReport] Estructura de veventos: ${_events.first.keys.toList()}');
-        debugPrint('📊 [MatchReport] Total eventos: ${_events.length}');
-      }
     } catch (e) {
       debugPrint('Error cargando detalles del partido: $e');
       setState(() {
@@ -85,9 +80,15 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     final categoria = match['categoria']?.toString();
     final temporada = match['temporada']?.toString();
     final observaciones = match['observaciones']?.toString();
-    final jornada = match['jornada']?.toString() ?? match['jcorta']?.toString();
     final ncortoEquipo = match['ncortoclub']?.toString() ?? 'Mi Equipo';
-    final ncortoRival = match['ncortorival']?.toString() ?? match['ncortoclubrival']?.toString() ?? rival;
+    // Obtener nombre del rival: si ncortorival/ncortoclubrival son '0' (idrival=14), usar el campo 'rival'
+    final ncortoRivalValue = match['ncortorival']?.toString();
+    final ncortoClubRivalValue = match['ncortoclubrival']?.toString();
+    final ncortoRival = (ncortoRivalValue != null && ncortoRivalValue != '0')
+        ? ncortoRivalValue
+        : (ncortoClubRivalValue != null && ncortoClubRivalValue != '0')
+            ? ncortoClubRivalValue
+            : rival;
 
     // Determinar resultado
     String resultText;
@@ -118,22 +119,34 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     final titulares = _players.where((p) => p['titular'] == 1).toList();
     final suplentes = _players.where((p) => p['titular'] != 1).toList();
 
+    // Calcular estadísticas de eventos
+    final golesEquipo = _events.where((e) => e['gol'] == 1 || e['gol'] == true).length;
+    final golesRival = _events.where((e) => e['golencajado'] == 1 || e['golencajado'] == true).length;
+    final tarjetasAmarillas = _events.where((e) => (e['tam'] == 1 || e['tam'] == true) || (e['tam2'] == 1 || e['tam2'] == true)).length;
+    // Tarjetas rojas: tro (equipo) + troriv (rival)
+    final tarjetasRojas = _events.where((e) =>
+        (e['tro'] == 1 || e['tro'] == true) ||
+        (e['troriv'] == 1 || e['troriv'] == true)
+    ).length;
+
     return Dialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Container(
-        width: 600,
-        constraints: const BoxConstraints(maxHeight: 700),
+        width: 920,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ===== HEADER =====
-            _buildHeader(
+            // ===== HEADER GRANDE =====
+            _buildHeroHeader(
               local: local,
               ncortoEquipo: ncortoEquipo,
               ncortoRival: ncortoRival,
@@ -144,57 +157,77 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
               resultText: resultText,
               resultColor: resultColor,
               resultBgColor: resultBgColor,
+              competition: widget.competition,
+              fecha: fecha,
+              hora: hora,
+              campo: campo,
+              categoria: categoria,
+              temporada: temporada,
             ),
 
-            // ===== CONTENIDO SCROLLABLE =====
+            // ===== CONTENIDO PRINCIPAL (2 COLUMNAS) =====
             Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Badge de competición y resultado
-                    _buildCompetitionBadge(jornada, widget.competition, resultText, resultBgColor, resultColor),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ===== COLUMNA IZQUIERDA: Alineación =====
+                  Expanded(
+                    flex: 5,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Estadísticas rápidas
+                          _buildQuickStats(
+                            golesEquipo: golesEquipo,
+                            golesRival: golesRival,
+                            tarjetasAmarillas: tarjetasAmarillas,
+                            tarjetasRojas: tarjetasRojas,
+                          ),
 
-                    AppSpacing.vSpaceLg,
+                          AppSpacing.vSpaceLg,
 
-                    // Información del partido
-                    _buildInfoSection(
-                      fecha: fecha,
-                      hora: hora,
-                      campo: campo,
-                      categoria: categoria,
-                      temporada: temporada,
+                          // Alineación
+                          if (_isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (_players.isEmpty)
+                            _buildEmptyPlayers()
+                          else
+                            _buildLineupSection(titulares, suplentes),
+
+                          // Observaciones
+                          if (observaciones != null && observaciones.isNotEmpty) ...[
+                            AppSpacing.vSpaceLg,
+                            _buildObservations(observaciones),
+                          ],
+                        ],
+                      ),
                     ),
+                  ),
 
-                    AppSpacing.vSpaceLg,
+                  // ===== SEPARADOR VERTICAL =====
+                  Container(
+                    width: 1,
+                    color: AppColors.gray100,
+                  ),
 
-                    // Alineación
-                    if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (_players.isEmpty)
-                      _buildEmptyPlayers()
-                    else
-                      _buildLineupSection(titulares, suplentes),
-
-                    // Crónica del Partido (Eventos)
-                    if (_events.isNotEmpty) ...[
-                      AppSpacing.vSpaceLg,
-                      _buildEventsTimeline(),
-                    ],
-
-                    // Observaciones
-                    if (observaciones != null && observaciones.isNotEmpty) ...[
-                      AppSpacing.vSpaceLg,
-                      _buildObservations(observaciones),
-                    ],
-                  ],
-                ),
+                  // ===== COLUMNA DERECHA: Timeline de eventos =====
+                  Expanded(
+                    flex: 5,
+                    child: _events.isEmpty
+                        ? _buildEmptyEvents()
+                        : SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
+                            child: _buildEventsTimeline(),
+                          ),
+                  ),
+                ],
               ),
             ),
 
@@ -206,7 +239,8 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     );
   }
 
-  Widget _buildHeader({
+  /// Header grande y impactante con escudos, marcador y toda la info del partido
+  Widget _buildHeroHeader({
     required bool local,
     required String ncortoEquipo,
     required String ncortoRival,
@@ -217,21 +251,27 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     required String resultText,
     required Color resultColor,
     required Color resultBgColor,
+    required String? competition,
+    required DateTime? fecha,
+    required String? hora,
+    required String? campo,
+    required String? categoria,
+    required String? temporada,
   }) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.05),
+            AppColors.primary.withValues(alpha: 0.08),
             AppColors.primary.withValues(alpha: 0.02),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
         border: Border(
           bottom: BorderSide(color: AppColors.gray100, width: 1),
@@ -239,22 +279,63 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       ),
       child: Column(
         children: [
-          // Escudos y marcador
+          // Fila superior: Toda la info del partido
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              if (fecha != null)
+                _buildHeaderChip(
+                  icon: Icons.calendar_today_outlined,
+                  label: DateFormat('dd/MM/yyyy').format(fecha),
+                ),
+              if (hora != null && hora.isNotEmpty)
+                _buildHeaderChip(
+                  icon: Icons.access_time,
+                  label: hora,
+                ),
+              if (competition != null)
+                _buildHeaderChip(
+                  icon: Icons.emoji_events_outlined,
+                  label: competition,
+                  isHighlighted: true,
+                ),
+              if (categoria != null && categoria.isNotEmpty)
+                _buildHeaderChip(
+                  icon: Icons.category_outlined,
+                  label: categoria,
+                ),
+              if (campo != null && campo.isNotEmpty)
+                _buildHeaderChip(
+                  icon: Icons.stadium_outlined,
+                  label: campo,
+                ),
+              if (temporada != null && temporada.isNotEmpty)
+                _buildHeaderChip(
+                  icon: Icons.date_range_outlined,
+                  label: temporada,
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Escudos y marcador principal
           Row(
             children: [
               // Equipo Local
               Expanded(
                 child: Column(
                   children: [
-                    _buildTeamShield(
+                    _buildLargeTeamShield(
                       escudoUrl: local ? escudo : escudorival,
                       isMyTeam: local,
-                      rivalName: ncortoRival,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       local ? ncortoEquipo : ncortoRival,
-                      style: AppTypography.labelMedium.copyWith(
+                      style: AppTypography.h6.copyWith(
                         fontWeight: FontWeight.w700,
                         color: local ? AppColors.primary : AppColors.gray700,
                       ),
@@ -266,52 +347,51 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
                 ),
               ),
 
-              // Marcador
+              // Marcador central
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Column(
                   children: [
+                    // Marcador grande
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          '${local ? (goles ?? '-') : (golesrival ?? '-')}',
-                          style: AppTypography.h1.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: local ? AppColors.primary : AppColors.gray600,
+                        _buildScoreNumber(
+                          local ? (goles ?? 0) : (golesrival ?? 0),
+                          isMyTeam: local,
+                        ),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            '-',
+                            style: AppTypography.h1.copyWith(
+                              color: AppColors.gray300,
+                              fontWeight: FontWeight.w300,
+                              fontSize: 48,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Text(
-                          '-',
-                          style: AppTypography.h2.copyWith(
-                            color: AppColors.gray300,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Text(
-                          '${local ? (golesrival ?? '-') : (goles ?? '-')}',
-                          style: AppTypography.h1.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: !local ? AppColors.primary : AppColors.gray600,
-                          ),
+                        _buildScoreNumber(
+                          local ? (golesrival ?? 0) : (goles ?? 0),
+                          isMyTeam: !local,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
+                    // Badge de resultado
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       decoration: BoxDecoration(
                         color: resultBgColor,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: resultColor.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         resultText,
-                        style: AppTypography.labelSmall.copyWith(
+                        style: AppTypography.labelMedium.copyWith(
                           color: resultColor,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
                         ),
                       ),
                     ),
@@ -323,15 +403,14 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
               Expanded(
                 child: Column(
                   children: [
-                    _buildTeamShield(
+                    _buildLargeTeamShield(
                       escudoUrl: !local ? escudo : escudorival,
                       isMyTeam: !local,
-                      rivalName: ncortoRival,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       !local ? ncortoEquipo : ncortoRival,
-                      style: AppTypography.labelMedium.copyWith(
+                      style: AppTypography.h6.copyWith(
                         fontWeight: FontWeight.w700,
                         color: !local ? AppColors.primary : AppColors.gray700,
                       ),
@@ -349,145 +428,169 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     );
   }
 
-  Widget _buildTeamShield({
-    required String? escudoUrl,
-    required bool isMyTeam,
-    required String rivalName,
+  Widget _buildHeaderChip({
+    required IconData icon,
+    required String label,
+    bool isHighlighted = false,
   }) {
     return Container(
-      width: 64,
-      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isHighlighted ? AppColors.primary.withValues(alpha: 0.1) : AppColors.gray50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isHighlighted ? AppColors.primary.withValues(alpha: 0.3) : AppColors.gray200,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isHighlighted ? AppColors.primary : AppColors.gray500,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: AppTypography.labelSmall.copyWith(
+              color: isHighlighted ? AppColors.primary : AppColors.gray700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLargeTeamShield({
+    required String? escudoUrl,
+    required bool isMyTeam,
+  }) {
+    return Container(
+      width: 96,
+      height: 96,
       decoration: BoxDecoration(
         color: AppColors.gray50,
         shape: BoxShape.circle,
         border: Border.all(
-          color: isMyTeam ? AppColors.primary.withValues(alpha: 0.3) : AppColors.gray100,
-          width: 2,
+          color: isMyTeam ? AppColors.primary.withValues(alpha: 0.4) : AppColors.gray200,
+          width: 3,
         ),
+        boxShadow: isMyTeam
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: ClipOval(
         child: escudoUrl != null && escudoUrl.isNotEmpty
             ? Image.network(
                 escudoUrl,
-                width: 64,
-                height: 64,
+                width: 96,
+                height: 96,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => _buildDefaultShield(isMyTeam),
+                errorBuilder: (_, __, ___) => _buildDefaultShieldLarge(isMyTeam),
                 loadingBuilder: (_, child, ___) => child,
               )
-            : _buildDefaultShield(isMyTeam),
+            : _buildDefaultShieldLarge(isMyTeam),
       ),
     );
   }
 
-  Widget _buildDefaultShield(bool isMyTeam) {
+  Widget _buildDefaultShieldLarge(bool isMyTeam) {
     return Icon(
       Icons.shield,
-      size: 32,
+      size: 48,
       color: isMyTeam ? AppColors.primary : AppColors.gray400,
     );
   }
 
-  Widget _buildCompetitionBadge(
-    String? jornada,
-    String? competition,
-    String resultText,
-    Color resultBgColor,
-    Color resultColor,
-  ) {
-    return Row(
-      children: [
-        if (jornada != null || competition != null)
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.gray50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.gray100),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.emoji_events_outlined, size: 20, color: AppColors.gray500),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      competition ?? jornada ?? 'Competición',
-                      style: AppTypography.labelMedium.copyWith(
-                        color: AppColors.gray700,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
+  Widget _buildScoreNumber(int score, {required bool isMyTeam}) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 72),
+      child: Text(
+        '$score',
+        style: TextStyle(
+          fontSize: 56,
+          fontWeight: FontWeight.w800,
+          color: isMyTeam ? AppColors.primary : AppColors.gray500,
+          height: 1,
+        ),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 
-  Widget _buildInfoSection({
-    required DateTime? fecha,
-    required String? hora,
-    required String? campo,
-    required String? categoria,
-    required String? temporada,
+  /// Estadísticas rápidas del partido
+  Widget _buildQuickStats({
+    required int golesEquipo,
+    required int golesRival,
+    required int tarjetasAmarillas,
+    required int tarjetasRojas,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Información del Partido',
-            style: AppTypography.labelMedium.copyWith(
-              color: AppColors.gray900,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined, size: 18, color: AppColors.gray500),
+              const SizedBox(width: 8),
+              Text(
+                'Resumen',
+                style: AppTypography.labelMedium.copyWith(
+                  color: AppColors.gray900,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 24,
-            runSpacing: 12,
+          Row(
             children: [
-              if (fecha != null)
-                _buildInfoItem(
-                  Icons.calendar_today_outlined,
-                  'Fecha',
-                  DateFormat('dd/MM/yyyy').format(fecha),
+              Expanded(
+                child: _buildStatItem(
+                  Icons.sports_soccer,
+                  'Goles',
+                  '$golesEquipo',
+                  const Color(0xFF16A34A),
                 ),
-              if (hora != null && hora.isNotEmpty)
-                _buildInfoItem(
-                  Icons.access_time,
-                  'Hora',
-                  hora,
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  Icons.sports_soccer_outlined,
+                  'Encajados',
+                  '$golesRival',
+                  AppColors.error,
                 ),
-              if (campo != null && campo.isNotEmpty)
-                _buildInfoItem(
-                  Icons.stadium_outlined,
-                  'Campo',
-                  campo,
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  Icons.square,
+                  'Amarillas',
+                  '$tarjetasAmarillas',
+                  const Color(0xFFF59E0B),
                 ),
-              if (categoria != null && categoria.isNotEmpty)
-                _buildInfoItem(
-                  Icons.category_outlined,
-                  'Categoría',
-                  categoria,
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  Icons.square,
+                  'Rojas',
+                  '$tarjetasRojas',
+                  AppColors.error,
                 ),
-              if (temporada != null && temporada.isNotEmpty)
-                _buildInfoItem(
-                  Icons.date_range_outlined,
-                  'Temporada',
-                  temporada,
-                ),
+              ),
             ],
           ),
         ],
@@ -495,23 +598,29 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildStatItem(IconData icon, String label, String value, Color color) {
+    return Column(
       children: [
-        Icon(icon, size: 16, color: AppColors.gray400),
-        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 20, color: color),
+        ),
+        const SizedBox(height: 8),
         Text(
-          '$label: ',
-          style: AppTypography.labelSmall.copyWith(
-            color: AppColors.gray500,
+          value,
+          style: AppTypography.h5.copyWith(
+            color: color,
+            fontWeight: FontWeight.w800,
           ),
         ),
         Text(
-          value,
+          label,
           style: AppTypography.labelSmall.copyWith(
-            color: AppColors.gray700,
-            fontWeight: FontWeight.w600,
+            color: AppColors.gray500,
           ),
         ),
       ],
@@ -520,10 +629,10 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
 
   Widget _buildEmptyPlayers() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppColors.gray50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
       child: Center(
@@ -541,86 +650,102 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     );
   }
 
-  Widget _buildLineupSection(List<Map<String, dynamic>> titulares, List<Map<String, dynamic>> suplentes) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Titulares
-        if (titulares.isNotEmpty) ...[
-          Row(
-            children: [
-              Icon(Icons.star_outline, size: 18, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text(
-                'Alineación Titular',
-                style: AppTypography.labelMedium.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${titulares.length}',
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: titulares.map((p) => _buildPlayerChip(p, isTitular: true)).toList(),
+  Widget _buildEmptyEvents() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.history_outlined, size: 64, color: AppColors.gray200),
+          const SizedBox(height: 16),
+          Text(
+            'Sin eventos registrados',
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.gray400),
           ),
         ],
+      ),
+    );
+  }
 
-        // Suplentes
-        if (suplentes.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Icon(Icons.chair_outlined, size: 18, color: AppColors.gray500),
-              const SizedBox(width: 6),
-              Text(
-                'Suplentes',
-                style: AppTypography.labelMedium.copyWith(
-                  color: AppColors.gray600,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.gray100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${suplentes.length}',
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.gray600,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: suplentes.map((p) => _buildPlayerChip(p, isTitular: false)).toList(),
-          ),
+  Widget _buildLineupSection(List<Map<String, dynamic>> titulares, List<Map<String, dynamic>> suplentes) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Titulares
+          if (titulares.isNotEmpty) ...[
+            _buildSectionHeader(
+              icon: Icons.star_outline,
+              title: 'Alineación Titular',
+              count: titulares.length,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: titulares.map((p) => _buildPlayerChip(p, isTitular: true)).toList(),
+            ),
+          ],
+
+          // Suplentes
+          if (suplentes.isNotEmpty) ...[
+            if (titulares.isNotEmpty) const Divider(height: 32),
+            _buildSectionHeader(
+              icon: Icons.chair_outlined,
+              title: 'Suplentes',
+              count: suplentes.length,
+              color: AppColors.gray500,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: suplentes.map((p) => _buildPlayerChip(p, isTitular: false)).toList(),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    required int count,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: AppTypography.labelMedium.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$count',
+            style: AppTypography.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -643,7 +768,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Dorsal
           Container(
             width: 28,
             height: 28,
@@ -662,7 +786,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
             ),
           ),
           const SizedBox(width: 10),
-          // Nombre y posición
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -684,7 +807,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
                 ),
             ],
           ),
-          // Minutos entrada (suplentes que entraron)
           if (!isTitular && mentra != null) ...[
             const SizedBox(width: 8),
             Container(
@@ -708,7 +830,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     );
   }
 
-  /// Línea de tiempo de eventos del partido (goles, tarjetas y tiempos)
+  /// Línea de tiempo de eventos del partido (versión mejorada)
   Widget _buildEventsTimeline() {
     final casafuera = widget.match['casafuera'];
     final local = !(casafuera == 1 || casafuera == true);
@@ -716,10 +838,9 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     // Separar eventos por tipo
     final teamEvents = <Map<String, dynamic>>[];
     final rivalEvents = <Map<String, dynamic>>[];
-    final timeEvents = <Map<String, dynamic>>[]; // inicio, descanso, etc.
+    final timeEvents = <Map<String, dynamic>>[];
 
     for (final event in _events) {
-      // Detectar eventos de tiempo del partido
       final isTimeEvent = (event['inicio'] == 1 || event['inicio'] == true) ||
           (event['descanso'] == 1 || event['descanso'] == true) ||
           (event['segundamitad'] == 1 || event['segundamitad'] == true) ||
@@ -731,22 +852,22 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       }
 
       final idjugador = event['idjugador'] as int?;
-      final isRivalById = idjugador == 1; // idjugador = 1 significa jugador del rival
+      final isRivalById = idjugador == 1;
 
       final gol = event['gol'] == 1 || event['gol'] == true;
       final golPropio = event['golpropiopuerta'] == 1 || event['golpropiopuerta'] == true;
       final tam = event['tam'] == 1 || event['tam'] == true;
       final tam2 = event['tam2'] == 1 || event['tam2'] == true;
+      final tro = event['tro'] == 1 || event['tro'] == true; // Tarjeta roja del equipo
       final tamriv = event['tamriv'] == 1 || event['tamriv'] == true;
       final troriv = event['troriv'] == 1 || event['troriv'] == true;
-      final golencajado = event['golencajado'] == 1 || event['golencajado'] == true; // Gol del rival (gol encajado)
+      final golencajado = event['golencajado'] == 1 || event['golencajado'] == true;
 
-      // Clasificar por idjugador Y por tipo de evento
       final isRivalEvent = isRivalById || tamriv || troriv || golencajado;
 
       if (isRivalEvent) {
         rivalEvents.add(event);
-      } else if (gol || golPropio || tam || tam2) {
+      } else if (gol || golPropio || tam || tam2 || tro) {
         teamEvents.add(event);
       }
     }
@@ -766,87 +887,59 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     final allEvents = [...teamEvents, ...rivalEvents, ...timeEvents];
     if (allEvents.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gray100),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header de sección
-          Row(
-            children: [
-              const Text('⚽', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 6),
-              Text(
-                'Crónica del Partido',
-                style: AppTypography.labelMedium.copyWith(
-                  color: AppColors.gray900,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${allEvents.length}',
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header de sección
+        _buildSectionHeader(
+          icon: Icons.timeline,
+          title: 'Crónica del Partido',
+          count: allEvents.length,
+          color: AppColors.primary,
+        ),
 
-          // Headers de equipos
-          Row(
+        const SizedBox(height: 16),
+
+        // Headers de equipos
+        Container(
+          padding: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: AppColors.gray100),
+            ),
+          ),
+          child: Row(
             children: [
-              // Equipo local (tu equipo si es local, rival si eres visitante)
               Expanded(
                 child: Text(
                   local ? (widget.match['ncortoclub']?.toString() ?? 'Mi Equipo') : (widget.match['rival']?.toString() ?? 'Rival'),
                   style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.gray600,
-                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 60),
-              // Equipo visitante
+              const SizedBox(width: 56),
               Expanded(
                 child: Text(
                   !local ? (widget.match['ncortoclub']?.toString() ?? 'Mi Equipo') : (widget.match['rival']?.toString() ?? 'Rival'),
                   style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.gray600,
-                    fontWeight: FontWeight.w600,
+                    color: AppColors.gray500,
+                    fontWeight: FontWeight.w700,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+        ),
 
-          // Timeline de eventos
-          Column(
-            children: _buildTimelineRows(teamEvents, rivalEvents, local),
-          ),
-        ],
-      ),
+        const SizedBox(height: 8),
+
+        // Timeline de eventos
+        ..._buildTimelineRows(teamEvents, rivalEvents, local),
+      ],
     );
   }
 
@@ -857,7 +950,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
   ) {
     final rows = <Widget>[];
 
-    // Recolectar eventos de tiempo ordenados
     final timeEventsList = <Map<String, dynamic>>[];
     for (final event in _events) {
       final isTimeEvent = (event['inicio'] == 1 || event['inicio'] == true) ||
@@ -869,7 +961,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       }
     }
 
-    // Crear lista combinada de todos los eventos con su tipo
     final allEventsWithTypes = <({Map<String, dynamic> event, String type, int minute})>[];
 
     for (final e in teamEvents) {
@@ -894,17 +985,14 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       allEventsWithTypes.add((event: e, type: 'time', minute: minute));
     }
 
-    // Ordenar por minuto
     allEventsWithTypes.sort((a, b) => a.minute.compareTo(b.minute));
 
-    // Agrupar eventos por minuto
     final groupedEvents = <int, List<({Map<String, dynamic> event, String type})>>{};
     for (final item in allEventsWithTypes) {
       groupedEvents.putIfAbsent(item.minute, () => []);
       groupedEvents[item.minute]!.add((event: item.event, type: item.type));
     }
 
-    // Construir filas
     final sortedMinutes = groupedEvents.keys.toList()..sort();
 
     for (final minute in sortedMinutes) {
@@ -924,12 +1012,10 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
         }
       }
 
-      // Si hay evento de tiempo, mostrarlo centrado
       if (timeEvent != null) {
         rows.add(_buildTimeEventRow(timeEvent));
       }
 
-      // Si hay eventos de equipo, mostrarlos en el timeline
       if (teamEvent != null || rivalEvent != null) {
         rows.add(_buildTimelineRow(
           teamEvent: isLocal ? teamEvent : rivalEvent,
@@ -943,7 +1029,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     return rows;
   }
 
-  /// Fila para evento de tiempo centrado (inicio, descanso, etc.)
   Widget _buildTimeEventRow(Map<String, dynamic> event) {
     final inicio = event['inicio'] == 1 || event['inicio'] == true;
     final descanso = event['descanso'] == 1 || event['descanso'] == true;
@@ -985,24 +1070,24 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           const Expanded(child: Divider(height: 1, color: AppColors.gray200)),
           Container(
-            height: 32,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            height: 36,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: bgColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: iconColor.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 16, color: iconColor),
-                const SizedBox(width: 6),
+                Icon(icon, size: 18, color: iconColor),
+                const SizedBox(width: 8),
                 Text(
                   label,
                   style: AppTypography.labelSmall.copyWith(
@@ -1010,12 +1095,12 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     "$minute'",
@@ -1045,25 +1130,22 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     final showMinute = minute ?? teamMin ?? rivalMin;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Evento del equipo (izquierda)
           Expanded(
             child: teamEvent != null
                 ? _buildTimelineEventItem(teamEvent, isTeamEvent: true)
                 : const SizedBox(),
           ),
-
-          // Minuto central (circular)
           SizedBox(
-            width: 48,
+            width: 56,
             child: showMinute != null
                 ? Center(
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         color: AppColors.gray100,
                         shape: BoxShape.circle,
@@ -1082,8 +1164,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
                   )
                 : null,
           ),
-
-          // Evento del rival (derecha)
           Expanded(
             child: rivalEvent != null
                 ? _buildTimelineEventItem(rivalEvent, isTeamEvent: false)
@@ -1098,25 +1178,22 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     final idjugador = event['idjugador'] as int?;
     final apodo = event['apodo']?.toString();
 
-    // Verificar tipo de evento
     final gol = event['gol'] == 1 || event['gol'] == true;
     final golPropio = event['golpropiopuerta'] == 1 || event['golpropiopuerta'] == true;
     final tam = event['tam'] == 1 || event['tam'] == true;
     final tam2 = event['tam2'] == 1 || event['tam2'] == true;
+    final tro = event['tro'] == 1 || event['tro'] == true; // Tarjeta roja del equipo
     final tamriv = event['tamriv'] == 1 || event['tamriv'] == true;
     final troriv = event['troriv'] == 1 || event['troriv'] == true;
-    final golencajado = event['golencajado'] == 1 || event['golencajado'] == true; // Gol del rival
+    final golencajado = event['golencajado'] == 1 || event['golencajado'] == true;
 
-    // Determinar si es evento del rival (idjugador = 1 o por tipo de evento)
     final isRivalEvent = idjugador == 1 || tamriv || troriv || golencajado;
 
-    // Buscar datos del jugador en la lista de convocados (solo para eventos de mi equipo)
     Map<String, dynamic>? playerData;
     if (!isRivalEvent && idjugador != null && idjugador != 1) {
       playerData = _players.where((p) => p['idjugador'] == idjugador).firstOrNull;
     }
 
-    // Obtener dorsal: del evento directamente (tanto mi equipo como rival)
     final eventDorsal = event['dorsal'];
     String? dorsal;
     if (eventDorsal != null) {
@@ -1125,7 +1202,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
         dorsal = dorsalStr;
       }
     }
-    // Fallback para mi equipo: buscar en lista de convocados
     if (dorsal == null && playerData != null && playerData['dorsal'] != null) {
       final playerDorsal = playerData['dorsal'].toString();
       if (playerDorsal.isNotEmpty && playerDorsal != '0') {
@@ -1135,19 +1211,15 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
 
     final dorsalValido = dorsal != null && dorsal.isNotEmpty;
 
-    // Nombre del jugador: para goles encajados mostrar "Dorsal Nº X"
     String jugador;
     if (golencajado) {
-      // Gol del rival: mostrar "Dorsal Nº X"
       jugador = dorsalValido ? 'Dorsal Nº $dorsal' : 'Rival';
     } else if (isRivalEvent) {
-      // Otros eventos del rival: usar apodo del evento
       jugador = apodo ?? 'Rival';
     } else {
       jugador = playerData?['apodo']?.toString() ?? apodo ?? '';
     }
 
-    // Determinar icono y colores
     IconData icon;
     Color bgColor;
     Color iconColor;
@@ -1164,7 +1236,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       icon = Icons.square;
       bgColor = const Color(0xFFFFF8E1);
       iconColor = const Color(0xFFF59E0B);
-    } else if (troriv) {
+    } else if (tro || troriv) {
       icon = Icons.square;
       bgColor = const Color(0xFFFEF2F2);
       iconColor = AppColors.error;
@@ -1174,8 +1246,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
@@ -1184,32 +1255,15 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: iconColor),
-          const SizedBox(width: 6),
-          if (golencajado)
-            // Gol encajado: mostrar solo "Dorsal Nº X"
-            Text(
-              jugador,
-              style: AppTypography.labelSmall.copyWith(
-                color: AppColors.gray800,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          else if (dorsalValido)
-            Text(
-              jugador.isNotEmpty ? '$dorsal. $jugador' : 'Dorsal $dorsal',
-              style: AppTypography.labelSmall.copyWith(
-                color: AppColors.gray800,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          else if (jugador.isNotEmpty)
-            Text(
-              jugador,
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              golencajado
+                  ? jugador
+                  : dorsalValido
+                      ? (jugador.isNotEmpty ? '$dorsal. $jugador' : 'Dorsal $dorsal')
+                      : jugador,
               style: AppTypography.labelSmall.copyWith(
                 color: AppColors.gray800,
                 fontWeight: FontWeight.w600,
@@ -1217,6 +1271,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+          ),
         ],
       ),
     );
@@ -1227,7 +1282,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E1).withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFFFE082).withValues(alpha: 0.5)),
       ),
       child: Column(
@@ -1236,7 +1291,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
           Row(
             children: [
               Icon(Icons.note_outlined, size: 18, color: AppColors.gray600),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
                 'Observaciones',
                 style: AppTypography.labelMedium.copyWith(
@@ -1261,7 +1316,7 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: AppColors.gray100, width: 1),
@@ -1270,18 +1325,13 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          ElevatedButton.icon(
+          TextButton.icon(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close, size: 18),
             label: const Text('Cerrar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.gray100,
-              foregroundColor: AppColors.gray700,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.gray600,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
           ),
         ],
@@ -1305,7 +1355,6 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     if (value is int) return value;
 
     final str = value.toString();
-    // Si tiene formato "MM:SS", extraer solo los minutos
     if (str.contains(':')) {
       final parts = str.split(':');
       if (parts.isNotEmpty) {

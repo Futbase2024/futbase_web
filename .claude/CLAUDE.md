@@ -1,10 +1,44 @@
 # Content Engine App - Sistema de Gestión de Contenido
 
-> **Proyecto**: Content Engine App  
-> **Owner**: JPS Developer (Jesús)  
-> **Stack**: Flutter + Supabase + n8n  
-> **UI Framework**: Cupertino (Apple Native Design)  
+> **Proyecto**: Content Engine App
+> **Owner**: JPS Developer (Jesús)
+> **Stack**: Flutter + Supabase + n8n
+> **UI Framework**: Cupertino (Apple Native Design)
 > **Flutter Version**: 3.38.5 (via FVM)
+
+---
+
+## 🗄️ SUPABASE - CONFIGURACIÓN DEL PROYECTO
+
+### Proyecto Futbase
+
+| Campo | Valor |
+|-------|-------|
+| **Nombre** | futbase |
+| **Project ID** | `xgcqpdbmzgtisulylmtd` |
+| **Region** | eu-west-1 |
+| **Host** | db.xgcqpdbmzgtisulylmtd.supabase.co |
+| **MCP** | `mcp__supabase-Futbase__*` |
+
+### Uso del MCP de Supabase
+
+```dart
+// Siempre usar el proyecto Futbase con el ID:
+project_id: "xgcqpdbmzgtisulylmtd"
+
+// Ejemplo de consulta:
+mcp__supabase-Futbase__execute_sql(
+  project_id: "xgcqpdbmzgtisulylmtd",
+  query: "SELECT * FROM tpartidos LIMIT 10;"
+)
+```
+
+### Vistas Importantes
+
+| Vista | Descripción |
+|-------|-------------|
+| `vpartidosjugadores` | Jugadores convocados por partido |
+| `veventos` | Eventos de partidos (goles, tarjetas) |
 
 ---
 

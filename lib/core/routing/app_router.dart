@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/landing/presentation/pages/landing_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/results/presentation/pages/results_page.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/bloc/auth_state.dart';
 
@@ -22,6 +23,7 @@ class AppRouter {
   static const String teams = '/teams';
   static const String trainings = '/trainings';
   static const String matches = '/matches';
+  static const String results = '/results';
 
   // ========== RUTAS PÚBLICAS ==========
   static const List<String> publicRoutes = [
@@ -93,6 +95,16 @@ class AppRouter {
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             child: const DashboardPage(),
+          ),
+        ),
+
+        // ========== RESULTS (PROTEGIDO) ==========
+        GoRoute(
+          path: results,
+          name: 'results',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const ResultsPage(),
           ),
         ),
 

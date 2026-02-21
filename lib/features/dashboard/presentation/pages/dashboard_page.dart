@@ -12,6 +12,7 @@ import '../../../auth/bloc/auth_event.dart';
 import '../../../players/presentation/widgets/players_content.dart';
 import '../../../trainings/presentation/widgets/trainings_content.dart';
 import '../../../matches/presentation/widgets/matches_content.dart';
+import '../../../results/presentation/widgets/results_content.dart';
 
 /// Página principal del Dashboard
 ///
@@ -174,6 +175,11 @@ class _DashboardPageState extends State<DashboardPage> {
     // Si es matches, mostrar contenido de partidos
     if (_selectedNavItem == 'matches') {
       return MatchesContent(user: user, idTemporada: idTemporada);
+    }
+
+    // Si es results, mostrar contenido de resultados
+    if (_selectedNavItem == 'results') {
+      return ResultsContent(user: user);
     }
 
     // Si no está en dashboard, mostrar placeholder

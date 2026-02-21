@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -17,12 +18,16 @@ class MatchLineupDialog extends StatefulWidget {
     required this.idequipo,
     required this.matchInfo,
     required this.onSaved,
+    this.readOnly = false,
   });
 
   final int idpartido;
   final int idequipo;
   final Map<String, dynamic> matchInfo;
   final VoidCallback onSaved;
+
+  /// Si es true, el diálogo es solo lectura (sin drag & drop ni edición)
+  final bool readOnly;
 
   @override
   State<MatchLineupDialog> createState() => _MatchLineupDialogState();
@@ -65,10 +70,16 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
           value: _lineupBloc,
           child: BlocBuilder<MatchesBloc, MatchesState>(
             builder: (context, state) {
+              // Calcular número de titulares
+              int titularesCount = 0;
+              if (state is LineupState) {
+                titularesCount = state.lineup.values.where((v) => v).length;
+              }
+
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildHeader(rival, local),
+                  _buildHeader(rival, local, titularesCount: titularesCount),
                   Flexible(child: _buildContent(state)),
                   if (state is LineupState) _buildActions(state),
                 ],
@@ -80,7 +91,7 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
     );
   }
 
-  Widget _buildHeader(String rival, bool local) {
+  Widget _buildHeader(String rival, bool local, {int titularesCount = 0}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -95,12 +106,33 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Alineación',
-                  style: AppTypography.h6.copyWith(
-                    color: AppColors.gray900,
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Alineación',
+                      style: AppTypography.h6.copyWith(
+                        color: AppColors.gray900,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (widget.readOnly) ...[
+                      AppSpacing.hSpaceSm,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.gray200,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Solo lectura',
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.gray600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Text(
                   local ? 'vs $rival' : '@ $rival',
@@ -109,6 +141,29 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
               ],
             ),
           ),
+          // Contador de titulares
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.group, size: 16, color: Colors.white),
+                AppSpacing.hSpaceXs,
+                Text(
+                  'Titulares: $titularesCount',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AppSpacing.hSpaceSm,
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close),
@@ -366,64 +421,61 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
                 style: AppTypography.labelSmall.copyWith(color: AppColors.gray500),
               )
             : null,
-        trailing: Tooltip(
-          message: 'Arrastra al campo',
-          child: Icon(Icons.drag_indicator, size: 20, color: AppColors.gray400),
-        ),
-        onTap: () {
-          // Al tocar, hacer titular con posición por defecto
-          _lineupBloc.add(LineupPlayerMarkRequested(
-            idpartido: widget.idpartido,
-            idjugador: playerId,
-            titular: true,
-          ));
-        },
+        trailing: widget.readOnly
+            ? null
+            : Tooltip(
+                message: 'Arrastra al campo',
+                child: Icon(Icons.drag_indicator, size: 20, color: AppColors.gray400),
+              ),
+        onTap: widget.readOnly
+            ? null
+            : () {
+                // Al tocar, hacer titular con posición por defecto
+                _lineupBloc.add(LineupPlayerMarkRequested(
+                  idpartido: widget.idpartido,
+                  idjugador: playerId,
+                  titular: true,
+                ));
+              },
       ),
     );
   }
 
+  /// Proporción del campo (1:1.40)
+  static const double _fieldAspectRatio = 1 / 1.40; // ≈ 0.7143
+
+  /// Sistema de coordenadas BD:
+  /// - X: 0 (izquierda) a 1 (derecha)
+  /// - Y: 0 (abajo) a 1 (arriba)
+  /// Se usan directamente los valores de la BD sin conversión.
+
   Widget _buildFootballField(LineupState state, List<Map<String, dynamic>> titulares) {
-    return Container(
-      color: AppColors.gray900,
-      child: Stack(
-        children: [
-          // Campo de fútbol
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _FootballFieldPainter(),
-            ),
+    return Center(
+      child: AspectRatio(
+        aspectRatio: _fieldAspectRatio,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.gray900,
+            borderRadius: BorderRadius.circular(8),
           ),
-          // Zona de drop para todo el campo
-          Positioned.fill(
-            child: _buildDropZone(state, titulares),
-          ),
-          // Contador de titulares
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.group, size: 14, color: Colors.white),
-                  AppSpacing.hSpaceXs,
-                  Text(
-                    'Titulares: ${titulares.length}',
-                    style: AppTypography.labelSmall.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              children: [
+                // Campo de fútbol
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _FootballFieldPainter(),
                   ),
-                ],
-              ),
+                ),
+                // Zona de drop para todo el campo
+                Positioned.fill(
+                  child: _buildDropZone(state, titulares),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -434,6 +486,31 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
         final fieldWidth = fieldConstraints.maxWidth;
         final fieldHeight = fieldConstraints.maxHeight;
 
+        // 📐 LOG DE DIMENSIONES DEL CAMPO
+        debugPrint('📐 CAMPO: ${fieldWidth.toStringAsFixed(1)} x ${fieldHeight.toStringAsFixed(1)} px | Aspect: ${_fieldAspectRatio.toStringAsFixed(4)} | Titulares: ${titulares.length}');
+
+        // Si es solo lectura, no permitir drag & drop
+        if (widget.readOnly) {
+          return Stack(
+            key: _fieldKey,
+            children: titulares.map((player) {
+              final playerId = player['id'] as int;
+              final posX = state.posX[playerId];
+              final posY = state.posY[playerId];
+
+              return _buildDraggablePlayer(
+                state,
+                player,
+                fieldWidth: fieldWidth,
+                fieldHeight: fieldHeight,
+                posX: posX,
+                posY: posY,
+              );
+            }).toList(),
+          );
+        }
+
+        // Modo editable: con DragTarget
         return DragTarget<Map<String, dynamic>>(
           key: _fieldKey,
           onWillAcceptWithDetails: (details) => true,
@@ -499,20 +576,58 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
     final playerId = player['id'] as int;
     final nombre = player['nombre'] as String? ?? '';
     final dorsal = player['dorsal'] as int?;
+    final posicion = player['posicion'] as String?;
 
-    // Si no tiene posición, calcular según posición táctica
+    // Determinar si es portero por la posición táctica
+    final isPortero = posicion?.toLowerCase().contains('portero') ?? false;
+
+    // Obtener URL de la camiseta según si es portero o no
+    final camisetaUrl = state.getCamisetaUrl(isPortero);
+    final dorsalColor = state.dorsalColor;
+
+    // Usar posiciones reales de BD directamente (0-1)
     final effectiveX = posX ?? 0.5;
-    final effectiveY = posY ?? _getDefaultYPosition(player['posicion']);
+    final effectiveY = posY ?? _getDefaultYPosition(posicion);
 
-    // Calcular posición absoluta en píxeles
+    // Calcular posición en píxeles directamente desde BD
     const playerWidth = 50.0;
     const playerHeight = 65.0;
-    final left = (effectiveX * fieldWidth) - (playerWidth / 2);
-    final top = (effectiveY * fieldHeight) - (playerHeight / 2);
 
-    // 📍 LOG DE POSICIÓN EFECTIVA
-    debugPrint('📍 [DRAGGABLE] #$dorsal $nombre (id=$playerId): posX=$posX → effectiveX=$effectiveX | posY=$posY → effectiveY=$effectiveY | left=$left | top=$top');
+    // Offset para ajustar posición visual (más abajo y más a la derecha)
+    const offsetX = 0.03; // 3% a la derecha
+    const offsetY = 0.05; // 5% más abajo
 
+    // Posición con offset
+    final left = (effectiveX + offsetX) * fieldWidth;
+    final top = (effectiveY + offsetY) * fieldHeight;
+
+    // 📍 LOG DE POSICIÓN: BD vs Web
+    debugPrint('📍 #$dorsal $nombre | BD: X=$posX, Y=$posY | Web: X=$effectiveX, Y=$effectiveY | Campo: ${fieldWidth.toStringAsFixed(1)}x${fieldHeight.toStringAsFixed(1)}px');
+
+    // Widget del jugador
+    final playerWidget = _buildPlayerWidget(
+      dorsal,
+      nombre,
+      isPortero: isPortero,
+      camisetaUrl: camisetaUrl,
+      dorsalColor: dorsalColor,
+    );
+
+    // Si es solo lectura, mostrar sin interactividad
+    if (widget.readOnly) {
+      return Positioned(
+        left: left.clamp(0.0, fieldWidth - playerWidth),
+        top: top.clamp(0.0, fieldHeight - playerHeight),
+        width: playerWidth,
+        height: playerHeight,
+        child: Tooltip(
+          message: nombre,
+          child: playerWidget,
+        ),
+      );
+    }
+
+    // Modo editable: con drag & drop
     return Positioned(
       left: left.clamp(0.0, fieldWidth - playerWidth),
       top: top.clamp(0.0, fieldHeight - playerHeight),
@@ -522,11 +637,24 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
         data: player,
         feedback: Material(
           color: Colors.transparent,
-          child: _buildPlayerWidget(dorsal, nombre, isDragging: true),
+          child: _buildPlayerWidget(
+            dorsal,
+            nombre,
+            isDragging: true,
+            isPortero: isPortero,
+            camisetaUrl: camisetaUrl,
+            dorsalColor: dorsalColor,
+          ),
         ),
         childWhenDragging: Opacity(
           opacity: 0.3,
-          child: _buildPlayerWidget(dorsal, nombre),
+          child: _buildPlayerWidget(
+            dorsal,
+            nombre,
+            isPortero: isPortero,
+            camisetaUrl: camisetaUrl,
+            dorsalColor: dorsalColor,
+          ),
         ),
         onDragEnd: (details) {
           // Obtener posición del campo usando la GlobalKey (no el context del draggable)
@@ -558,46 +686,102 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
           },
           child: Tooltip(
             message: '$nombre - Arrastra para mover, toca para quitar',
-            child: _buildPlayerWidget(dorsal, nombre),
+            child: playerWidget,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPlayerWidget(int? dorsal, String nombre, {bool isDragging = false}) {
+  /// Obtiene el color del dorsal según idcolor de la BD
+  /// 0=blanco, 1=negro, 2=naranja, 3=rosa
+  Color _getDorsalColor(int dorsalColor) {
+    switch (dorsalColor) {
+      case 1:
+        return Colors.black;
+      case 2:
+        return Colors.orange;
+      case 3:
+        return const Color(0xFFE91E63); // Rosa
+      default:
+        return Colors.white;
+    }
+  }
+
+  Widget _buildPlayerWidget(
+    int? dorsal,
+    String nombre, {
+    bool isDragging = false,
+    bool isPortero = false,
+    String? camisetaUrl,
+    int dorsalColor = 0,
+  }) {
+    // Color del dorsal según BD
+    final textColor = _getDorsalColor(dorsalColor);
+
     return SizedBox(
-      width: 50,
-      height: 65,
+      width: 55,
+      height: 70,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isDragging ? AppColors.primaryDark : AppColors.primary,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+          // Camiseta con dorsal
+          SizedBox(
+            width: 45,
+            height: 45,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Imagen de la camiseta (desde URL o asset local)
+                if (camisetaUrl != null && camisetaUrl.isNotEmpty)
+                  CachedNetworkImage(
+                    imageUrl: camisetaUrl,
+                    width: 45,
+                    height: 45,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isPortero ? AppColors.gray900 : AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => _buildFallbackCamiseta(isPortero, isDragging),
+                  )
+                else
+                  _buildFallbackCamiseta(isPortero, isDragging),
+                // Dorsal encima de la camiseta
+                Positioned(
+                  top: 12,
+                  child: Text(
+                    dorsal?.toString() ?? '?',
+                    style: AppTypography.labelMedium.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w700,
+                      shadows: [
+                        Shadow(
+                          color: textColor == Colors.white
+                              ? Colors.black.withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.3),
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            child: Center(
-              child: Text(
-                dorsal?.toString() ?? '?',
-                style: AppTypography.labelMedium.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
+          // Nombre del jugador
           Text(
             nombre.length > 8 ? '${nombre.substring(0, 7)}.' : nombre,
             style: AppTypography.labelSmall.copyWith(
@@ -619,11 +803,40 @@ class _MatchLineupDialogState extends State<MatchLineupDialog> {
     );
   }
 
+  /// Fallback a camiseta local cuando no hay URL
+  Widget _buildFallbackCamiseta(bool isPortero, bool isDragging) {
+    final camisetaAsset = isPortero
+        ? 'assets/camisetas/camisetaNegra.png'
+        : 'assets/camisetas/camisetaNumero.png';
+
+    return Image.asset(
+      camisetaAsset,
+      width: 45,
+      height: 45,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        // Fallback final al círculo si no encuentra la imagen
+        return Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isPortero
+                ? AppColors.gray900
+                : (isDragging ? AppColors.primaryDark : AppColors.primary),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+        );
+      },
+    );
+  }
+
   double _getDefaultYPosition(String? posicion) {
     if (posicion == null) return 0.5;
     final pos = posicion.toLowerCase();
-    if (pos.contains('portero') || pos.contains('goalkeeper')) return 0.85;
-    if (pos.contains('defen') || pos.contains('lateral') || pos.contains('central')) return 0.65;
+    // Portero en la portería de abajo (el área pequeña va de 0.94 a 1.0)
+    if (pos.contains('portero') || pos.contains('goalkeeper')) return 0.94;
+    if (pos.contains('defen') || pos.contains('lateral') || pos.contains('central')) return 0.70;
     if (pos.contains('centro') || pos.contains('medio') || pos.contains('pivot')) return 0.45;
     if (pos.contains('delan') || pos.contains('extrem') || pos.contains('wing')) return 0.25;
     return 0.5;

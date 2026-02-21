@@ -300,6 +300,24 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         return;
       }
 
+      // Obtener IDs de jugadores para hacer query a tjugadores
+      final jugadorIds = attendanceData
+          .map((att) => att['idjugador'] as int)
+          .toSet()
+          .toList();
+
+      // Cargar datos adicionales de jugadores (foto, dorsal, idposicion)
+      final jugadoresData = await _supabase
+          .from('tjugadores')
+          .select('id, dorsal, foto, idposicion')
+          .inFilter('id', jugadorIds);
+
+      // Crear mapa de datos de jugadores
+      final jugadoresMap = <int, Map<String, dynamic>>{};
+      for (final jug in jugadoresData) {
+        jugadoresMap[jug['id'] as int] = jug;
+      }
+
       // Construir lista de jugadores y su asistencia
       final players = <Map<String, dynamic>>[];
       final attendance = <int, bool>{};
@@ -314,11 +332,16 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         idclub ??= att['idclub'] as int?;
         idequipo ??= att['idequipo'] as int?;
 
+        // Obtener datos adicionales del jugador
+        final jugadorExtra = jugadoresMap[idJugador];
+
         players.add({
           'id': idJugador,
           'nombre': att['nombrejug']?.toString() ?? '',
           'apellidos': att['apellidos']?.toString() ?? '',
-          'dorsal': '', // La vista no tiene dorsal
+          'dorsal': jugadorExtra?['dorsal']?.toString() ?? '',
+          'foto': jugadorExtra?['foto']?.toString() ?? '',
+          'idposicion': jugadorExtra?['idposicion'],
         });
 
         // asiste es smallint: 0 = no asiste, 1 = asiste
@@ -357,10 +380,8 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
 
     newAttendance[event.idjugador] = event.presente;
 
-    // Si asiste, limpiar motivo; si no, guardar motivo
-    if (event.presente) {
-      newSelectedMotive[event.idjugador] = null;
-    } else if (event.idmotivo != null) {
+    // Guardar el motivo seleccionado (incluyendo Asiste = 1)
+    if (event.idmotivo != null) {
       newSelectedMotive[event.idjugador] = event.idmotivo;
     }
 

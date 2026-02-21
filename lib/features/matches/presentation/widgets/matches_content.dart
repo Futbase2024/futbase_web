@@ -35,6 +35,7 @@ class MatchesContent extends StatefulWidget {
 
 class _MatchesContentState extends State<MatchesContent> {
   late final MatchesBloc _matchesBloc;
+  bool _showAllResults = false;
 
   @override
   void initState() {
@@ -108,6 +109,10 @@ class _MatchesContentState extends State<MatchesContent> {
     final idequipo = widget.user.idequipo;
     if (idequipo <= 0) return;
 
+    // Determinar si es solo lectura basado en si el partido está finalizado
+    final finalizado = match['finalizado'];
+    final isReadOnly = finalizado == 1 || finalizado == true;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -115,6 +120,7 @@ class _MatchesContentState extends State<MatchesContent> {
         idpartido: match['id'] as int,
         idequipo: idequipo,
         matchInfo: match,
+        readOnly: isReadOnly,
         onSaved: () {
           Navigator.of(dialogContext).pop();
         },
@@ -254,9 +260,13 @@ class _MatchesContentState extends State<MatchesContent> {
                   Expanded(
                     flex: 2,
                     child: RecentResultsList(
-                      matches: recentResults.take(5).toList(),
+                      matches: _showAllResults
+                          ? recentResults
+                          : recentResults.take(5).toList(),
                       competitions: state.competitions,
                       onTap: (match) => _showMatchReport(match, state.competitions),
+                      onVerHistorial: () => setState(() => _showAllResults = true),
+                      showAll: _showAllResults,
                     ),
                   ),
                 ],

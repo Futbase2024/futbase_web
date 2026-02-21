@@ -228,6 +228,10 @@ class LineupState extends MatchesState {
   final Map<int, double?> posXCambio;
   final Map<int, double?> posYCambio;
   final bool isSaving;
+  // Camisetas desde la BD
+  final String? camisetaUrl;        // URL de la camiseta para jugadores de campo
+  final String? camisetaPorteroUrl; // URL de la camiseta del portero
+  final int dorsalColor;            // 0=blanco, 1=negro, 2=naranja, 3=rosa
 
   const LineupState({
     required this.idpartido,
@@ -240,6 +244,9 @@ class LineupState extends MatchesState {
     this.posXCambio = const {},
     this.posYCambio = const {},
     this.isSaving = false,
+    this.camisetaUrl,
+    this.camisetaPorteroUrl,
+    this.dorsalColor = 0,
   });
 
   int get startersCount => lineup.values.where((v) => v).length;
@@ -261,6 +268,9 @@ class LineupState extends MatchesState {
     }).toList();
   }
 
+  /// Obtener URL de camiseta según si es portero o no
+  String? getCamisetaUrl(bool isPortero) => isPortero ? camisetaPorteroUrl : camisetaUrl;
+
   @override
   List<Object?> get props => [
         idpartido,
@@ -273,6 +283,9 @@ class LineupState extends MatchesState {
         posXCambio,
         posYCambio,
         isSaving,
+        camisetaUrl,
+        camisetaPorteroUrl,
+        dorsalColor,
       ];
 
   LineupState copyWith({
@@ -286,6 +299,9 @@ class LineupState extends MatchesState {
     Map<int, double?>? posXCambio,
     Map<int, double?>? posYCambio,
     bool? isSaving,
+    String? camisetaUrl,
+    String? camisetaPorteroUrl,
+    int? dorsalColor,
   }) {
     return LineupState(
       idpartido: idpartido ?? this.idpartido,
@@ -298,6 +314,9 @@ class LineupState extends MatchesState {
       posXCambio: posXCambio ?? this.posXCambio,
       posYCambio: posYCambio ?? this.posYCambio,
       isSaving: isSaving ?? this.isSaving,
+      camisetaUrl: camisetaUrl ?? this.camisetaUrl,
+      camisetaPorteroUrl: camisetaPorteroUrl ?? this.camisetaPorteroUrl,
+      dorsalColor: dorsalColor ?? this.dorsalColor,
     );
   }
 }
