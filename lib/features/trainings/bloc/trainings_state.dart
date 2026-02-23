@@ -28,6 +28,19 @@ class TrainingsLoaded extends TrainingsState {
   final DateTime? filterToDate;
   final int? filterByType;
 
+  // Campos nuevos para Club/Coordinador
+  final List<Map<String, dynamic>> teams; // Equipos del club
+  final Map<int, double> attendanceByTeam; // % asistencia por equipo
+  final double overallAttendance; // Asistencia media global
+  final String viewMode; // 'list', 'month', 'week'
+  final DateTime focusedWeek; // Semana enfocada en calendario semanal
+  final bool isClubView; // True si es vista de club/coordinador
+
+  // Estadísticas de distribución
+  final Map<String, int> trainingsByTimeSlot; // mañana, tarde
+  final Map<String, int> trainingsByField; // campo -> cantidad
+  final Map<int, int> trainingsByTeam; // idequipo -> cantidad semanal
+
   const TrainingsLoaded({
     required this.trainings,
     required this.filteredTrainings,
@@ -35,6 +48,15 @@ class TrainingsLoaded extends TrainingsState {
     this.filterFromDate,
     this.filterToDate,
     this.filterByType,
+    this.teams = const [],
+    this.attendanceByTeam = const {},
+    this.overallAttendance = 0.0,
+    this.viewMode = 'list',
+    required this.focusedWeek,
+    this.isClubView = false,
+    this.trainingsByTimeSlot = const {},
+    this.trainingsByField = const {},
+    this.trainingsByTeam = const {},
   });
 
   /// Total de entrenamientos
@@ -58,11 +80,49 @@ class TrainingsLoaded extends TrainingsState {
     }).length;
   }
 
-  /// Porcentaje de asistencia media (placeholder - se calcularía con datos de asistencia)
-  double get averageAttendance => 0.0;
+  /// Porcentaje de asistencia media
+  double get averageAttendance => overallAttendance;
 
   bool get hasActiveFilters =>
       filterFromDate != null || filterToDate != null || filterByType != null;
+
+  /// Obtiene los entrenamientos de una fecha específica
+  List<Map<String, dynamic>> getTrainingsForDate(DateTime date) {
+    return trainings.where((t) {
+      final fechaRaw = t['fecha'];
+      DateTime? fecha;
+      if (fechaRaw is DateTime) {
+        fecha = fechaRaw;
+      } else {
+        fecha = DateTime.tryParse(fechaRaw?.toString() ?? '');
+      }
+      if (fecha == null) return false;
+      return fecha.year == date.year && fecha.month == date.month && fecha.day == date.day;
+    }).toList();
+  }
+
+  /// Obtiene los entrenamientos de la semana enfocada
+  List<Map<String, dynamic>> getWeekTrainings() {
+    final startOfWeek = focusedWeek.subtract(Duration(days: focusedWeek.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+    return trainings.where((t) {
+      final fechaRaw = t['fecha'];
+      DateTime? fecha;
+      if (fechaRaw is DateTime) {
+        fecha = fechaRaw;
+      } else {
+        fecha = DateTime.tryParse(fechaRaw?.toString() ?? '');
+      }
+      if (fecha == null) return false;
+
+      final fechaClean = DateTime(fecha.year, fecha.month, fecha.day);
+      final startClean = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+      final endClean = DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day);
+
+      return !fechaClean.isBefore(startClean) && !fechaClean.isAfter(endClean);
+    }).toList();
+  }
 
   @override
   List<Object?> get props => [
@@ -72,6 +132,15 @@ class TrainingsLoaded extends TrainingsState {
         filterFromDate,
         filterToDate,
         filterByType,
+        teams,
+        attendanceByTeam,
+        overallAttendance,
+        viewMode,
+        focusedWeek,
+        isClubView,
+        trainingsByTimeSlot,
+        trainingsByField,
+        trainingsByTeam,
       ];
 
   TrainingsLoaded copyWith({
@@ -81,6 +150,15 @@ class TrainingsLoaded extends TrainingsState {
     Object? filterFromDate = _unset,
     Object? filterToDate = _unset,
     Object? filterByType = _unset,
+    List<Map<String, dynamic>>? teams,
+    Map<int, double>? attendanceByTeam,
+    double? overallAttendance,
+    String? viewMode,
+    DateTime? focusedWeek,
+    bool? isClubView,
+    Map<String, int>? trainingsByTimeSlot,
+    Map<String, int>? trainingsByField,
+    Map<int, int>? trainingsByTeam,
   }) {
     return TrainingsLoaded(
       trainings: trainings ?? this.trainings,
@@ -92,6 +170,15 @@ class TrainingsLoaded extends TrainingsState {
           filterToDate == _unset ? this.filterToDate : filterToDate as DateTime?,
       filterByType:
           filterByType == _unset ? this.filterByType : filterByType as int?,
+      teams: teams ?? this.teams,
+      attendanceByTeam: attendanceByTeam ?? this.attendanceByTeam,
+      overallAttendance: overallAttendance ?? this.overallAttendance,
+      viewMode: viewMode ?? this.viewMode,
+      focusedWeek: focusedWeek ?? this.focusedWeek,
+      isClubView: isClubView ?? this.isClubView,
+      trainingsByTimeSlot: trainingsByTimeSlot ?? this.trainingsByTimeSlot,
+      trainingsByField: trainingsByField ?? this.trainingsByField,
+      trainingsByTeam: trainingsByTeam ?? this.trainingsByTeam,
     );
   }
 }

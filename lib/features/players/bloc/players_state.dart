@@ -26,16 +26,22 @@ class PlayersLoaded extends PlayersState {
   final List<Map<String, dynamic>> players;
   final List<Map<String, dynamic>> filteredPlayers;
   final Map<int, String> positions;
+  final Map<int, String> teams;
   final String searchQuery;
   final int? filterByPosition;
+  final int? filterByTeam;
+  final bool showInactive;
   final int totalPlayers;
 
   const PlayersLoaded({
     required this.players,
     required this.filteredPlayers,
     required this.positions,
+    this.teams = const {},
     this.searchQuery = '',
     this.filterByPosition,
+    this.filterByTeam,
+    this.showInactive = false,
   }) : totalPlayers = players.length;
 
   @override
@@ -43,8 +49,11 @@ class PlayersLoaded extends PlayersState {
         players,
         filteredPlayers,
         positions,
+        teams,
         searchQuery,
         filterByPosition,
+        filterByTeam,
+        showInactive,
         totalPlayers,
       ];
 
@@ -54,19 +63,27 @@ class PlayersLoaded extends PlayersState {
     List<Map<String, dynamic>>? players,
     List<Map<String, dynamic>>? filteredPlayers,
     Map<int, String>? positions,
+    Map<int, String>? teams,
     Object? searchQuery = _unset,
     Object? filterByPosition = _unset,
+    Object? filterByTeam = _unset,
+    bool? showInactive,
   }) {
     return PlayersLoaded(
       players: players ?? this.players,
       filteredPlayers: filteredPlayers ?? this.filteredPlayers,
       positions: positions ?? this.positions,
+      teams: teams ?? this.teams,
       searchQuery: searchQuery == _unset
           ? this.searchQuery
           : searchQuery as String,
       filterByPosition: filterByPosition == _unset
           ? this.filterByPosition
           : filterByPosition as int?,
+      filterByTeam: filterByTeam == _unset
+          ? this.filterByTeam
+          : filterByTeam as int?,
+      showInactive: showInactive ?? this.showInactive,
     );
   }
 }

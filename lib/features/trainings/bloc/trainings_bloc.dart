@@ -23,6 +23,11 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     on<AttendanceLoadRequested>(_onAttendanceLoadRequested);
     on<AttendanceMarkRequested>(_onAttendanceMarkRequested);
     on<AttendanceSaveRequested>(_onAttendanceSaveRequested);
+    // Nuevos handlers para Club/Coordinador
+    on<TrainingsLoadByClubRequested>(_onLoadByClubRequested);
+    on<AttendanceStatsRequested>(_onAttendanceStatsRequested);
+    on<CalendarViewChanged>(_onCalendarViewChanged);
+    on<WeekNavigationRequested>(_onWeekNavigationRequested);
   }
 
   /// Carga inicial de entrenamientos
@@ -32,6 +37,18 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
   ) async {
     debugPrint('🏋️ [TrainingsBloc] Cargando entrenamientos (idequipo=${event.idequipo})');
     emit(const TrainingsLoading());
+
+    // Si el idequipo no es válido, emitir estado vacío
+    if (event.idequipo <= 0) {
+      debugPrint('🏋️ [TrainingsBloc] ID de equipo inválido, emitiendo estado vacío');
+      emit(TrainingsLoaded(
+        trainings: [],
+        filteredTrainings: [],
+        trainingTypes: {},
+        focusedWeek: DateTime.now(),
+      ));
+      return;
+    }
 
     try {
       // Cargar entrenamientos desde la vista que ya incluye el campo 'campo' (lugar)
@@ -58,6 +75,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         trainings: trainings,
         filteredTrainings: trainings,
         trainingTypes: {}, // No hay tabla de tipos
+        focusedWeek: DateTime.now(),
       ));
     } catch (e) {
       debugPrint('🏋️ [TrainingsBloc] Error: $e');
@@ -117,6 +135,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         filterFromDate: currentFromDate,
         filterToDate: currentToDate,
         filterByType: currentType,
+        focusedWeek: DateTime.now(),
       ));
     } catch (e) {
       emit(TrainingsError(message: e.toString()));
@@ -472,5 +491,259 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     int idtipo,
   ) {
     return trainings.where((t) => t['idpauta'] == idtipo).toList();
+  }
+
+  /// Cargar entrenamientos de todos los equipos de un club (para Club/Coordinador)
+  Future<void> _onLoadByClubRequested(
+    TrainingsLoadByClubRequested event,
+    Emitter<TrainingsState> emit,
+  ) async {
+    debugPrint('🏋️ [TrainingsBloc] Cargando entrenamientos del club (idclub=${event.idclub})');
+    emit(const TrainingsLoading());
+
+    // Si el idclub no es válido, emitir estado vacío
+    if (event.idclub <= 0) {
+      debugPrint('🏋️ [TrainingsBloc] ID de club inválido, emitiendo estado vacío');
+      emit(TrainingsLoaded(
+        trainings: [],
+        filteredTrainings: [],
+        trainingTypes: {},
+        teams: [],
+        focusedWeek: DateTime.now(),
+        isClubView: true,
+      ));
+      return;
+    }
+
+    try {
+      final now = DateTime.now();
+
+      // Calcular rango de fechas (por defecto: mes actual + 2 semanas antes/después)
+      final startDate = event.startDate ??
+          DateTime(now.year, now.month, 1).subtract(const Duration(days: 14));
+      final endDate = event.endDate ??
+          DateTime(now.year, now.month + 1, 0).add(const Duration(days: 14));
+
+      // Obtener equipos del club
+      final equiposData = await _supabase
+          .from('tequipos')
+          .select('id, equipo, ncorto, idcategoria')
+          .eq('idclub', event.idclub);
+
+      final equipoIds = (equiposData as List)
+          .map((e) => e['id'] as int)
+          .toList();
+
+      if (equipoIds.isEmpty) {
+        emit(TrainingsLoaded(
+          trainings: [],
+          filteredTrainings: [],
+          trainingTypes: {},
+          teams: [],
+          focusedWeek: DateTime.now(),
+          isClubView: true,
+        ));
+        return;
+      }
+
+      // Obtener categorías
+      final categoriasData = await _supabase
+          .from('tcategorias')
+          .select('id, categoria');
+
+      final categoriasMap = <int, String>{};
+      for (final cat in categoriasData as List) {
+        categoriasMap[cat['id'] as int] = cat['categoria'] as String;
+      }
+
+      // Construir lista de equipos enriquecida
+      final teams = equiposData.map((e) {
+        final idCategoria = e['idcategoria'] as int?;
+        return {
+          'id': e['id'],
+          'equipo': e['equipo'],
+          'ncorto': e['ncorto'],
+          'categoria': idCategoria != null ? categoriasMap[idCategoria] ?? '-' : '-',
+        };
+      }).toList();
+
+      // Cargar entrenamientos de todos los equipos
+      final trainingsData = await _supabase
+          .from('ventrenamientos')
+          .select('''
+            id,
+            fecha,
+            hinicio,
+            hfin,
+            idequipo,
+            nombre,
+            observaciones,
+            finalizado,
+            campo
+          ''')
+          .inFilter('idequipo', equipoIds)
+          .gte('fecha', startDate.toIso8601String().split('T')[0])
+          .lte('fecha', endDate.toIso8601String().split('T')[0])
+          .order('fecha', ascending: true)
+          .order('hinicio', ascending: true);
+
+      final trainings = (trainingsData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+
+      // Enriquecer entrenamientos con datos del equipo
+      final equiposMap = <int, Map<String, dynamic>>{};
+      for (final equipo in teams) {
+        equiposMap[equipo['id'] as int] = equipo;
+      }
+
+      for (final training in trainings) {
+        final idequipo = training['idequipo'] as int?;
+        if (idequipo != null && equiposMap.containsKey(idequipo)) {
+          final equipo = equiposMap[idequipo]!;
+          training['nombre_equipo'] = equipo['equipo'];
+          training['ncorto'] = equipo['ncorto'];
+          training['categoria'] = equipo['categoria'];
+        }
+      }
+
+      debugPrint('🏋️ [TrainingsBloc] Cargados ${trainings.length} entrenamientos de ${teams.length} equipos');
+
+      // Calcular distribución por horarios
+      final trainingsByTimeSlot = <String, int>{'mañana': 0, 'tarde': 0};
+      final trainingsByField = <String, int>{};
+      final trainingsByTeam = <int, int>{};
+
+      for (final training in trainings) {
+        // Clasificar por horario
+        final hinicio = training['hinicio']?.toString() ?? '';
+        if (hinicio.isNotEmpty) {
+          final hora = int.tryParse(hinicio.split(':').first) ?? 12;
+          if (hora < 14) {
+            trainingsByTimeSlot['mañana'] = (trainingsByTimeSlot['mañana'] ?? 0) + 1;
+          } else {
+            trainingsByTimeSlot['tarde'] = (trainingsByTimeSlot['tarde'] ?? 0) + 1;
+          }
+        }
+
+        // Clasificar por campo
+        final campo = training['campo']?.toString() ?? 'Sin campo';
+        trainingsByField[campo] = (trainingsByField[campo] ?? 0) + 1;
+
+        // Clasificar por equipo
+        final idequipo = training['idequipo'] as int?;
+        if (idequipo != null) {
+          trainingsByTeam[idequipo] = (trainingsByTeam[idequipo] ?? 0) + 1;
+        }
+      }
+
+      emit(TrainingsLoaded(
+        trainings: trainings,
+        filteredTrainings: trainings,
+        trainingTypes: {},
+        teams: teams,
+        focusedWeek: DateTime.now(),
+        isClubView: true,
+        trainingsByTimeSlot: trainingsByTimeSlot,
+        trainingsByField: trainingsByField,
+        trainingsByTeam: trainingsByTeam,
+      ));
+
+      // Cargar estadísticas de asistencia en segundo plano
+      add(AttendanceStatsRequested(idclub: event.idclub));
+    } catch (e) {
+      debugPrint('🏋️ [TrainingsBloc] Error: $e');
+      emit(TrainingsError(message: e.toString()));
+    }
+  }
+
+  /// Cargar estadísticas de asistencia
+  Future<void> _onAttendanceStatsRequested(
+    AttendanceStatsRequested event,
+    Emitter<TrainingsState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TrainingsLoaded) return;
+
+    try {
+      debugPrint('🏋️ [TrainingsBloc] Cargando estadísticas de asistencia');
+
+      // Obtener estadísticas de asistencia por equipo
+      final statsResponse = await _supabase
+          .from('ventrenojugador')
+          .select('idequipo, asiste, idmotivo')
+          .eq('idclub', event.idclub);
+
+      final attendanceByTeam = <int, double>{};
+      final teamCounts = <int, int>{};
+      final teamPresent = <int, int>{};
+
+      for (final record in statsResponse as List) {
+        final idequipo = record['idequipo'] as int?;
+        if (idequipo == null) continue;
+
+        teamCounts[idequipo] = (teamCounts[idequipo] ?? 0) + 1;
+
+        // asiste = 1 o idmotivo = 1 significa que asistió
+        final asiste = record['asiste'] as int?;
+        final idmotivo = record['idmotivo'] as int?;
+        if (asiste == 1 || idmotivo == 1) {
+          teamPresent[idequipo] = (teamPresent[idequipo] ?? 0) + 1;
+        }
+      }
+
+      // Calcular porcentajes
+      double totalPresent = 0;
+      int totalCount = 0;
+
+      for (final entry in teamCounts.entries) {
+        final idequipo = entry.key;
+        final count = entry.value;
+        final present = teamPresent[idequipo] ?? 0;
+        final percentage = count > 0 ? (present / count) * 100 : 0.0;
+        attendanceByTeam[idequipo] = double.parse(percentage.toStringAsFixed(1));
+
+        totalPresent += present;
+        totalCount += count;
+      }
+
+      final overallAttendance = totalCount > 0
+          ? double.parse(((totalPresent / totalCount) * 100).toStringAsFixed(1))
+          : 0.0;
+
+      debugPrint('🏋️ [TrainingsBloc] Asistencia media: $overallAttendance%');
+
+      emit(currentState.copyWith(
+        attendanceByTeam: attendanceByTeam,
+        overallAttendance: overallAttendance,
+      ));
+    } catch (e) {
+      debugPrint('🏋️ [TrainingsBloc] Error al cargar estadísticas: $e');
+      // No emitir error, mantener estado actual
+    }
+  }
+
+  /// Cambiar vista de calendario
+  void _onCalendarViewChanged(
+    CalendarViewChanged event,
+    Emitter<TrainingsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TrainingsLoaded) return;
+
+    emit(currentState.copyWith(viewMode: event.viewMode));
+  }
+
+  /// Navegar entre semanas
+  void _onWeekNavigationRequested(
+    WeekNavigationRequested event,
+    Emitter<TrainingsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! TrainingsLoaded) return;
+
+    final newFocusedWeek = event.goToNext
+        ? event.focusedWeek.add(const Duration(days: 7))
+        : event.focusedWeek.subtract(const Duration(days: 7));
+
+    emit(currentState.copyWith(focusedWeek: newFocusedWeek));
   }
 }

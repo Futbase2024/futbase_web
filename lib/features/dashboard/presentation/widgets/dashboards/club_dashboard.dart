@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:futbase_core_datasource/futbase_core_datasource.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/widgets/shared_widgets.dart';
 
-/// Dashboard para administradores de Club con estadísticas de su club
+/// Dashboard para administradores de Club con estadísticas agregadas de todos sus equipos
 class ClubDashboard extends StatefulWidget {
   const ClubDashboard({
     super.key,
@@ -31,13 +32,17 @@ class _ClubDashboardState extends State<ClubDashboard> {
   int _totalJugadores = 0;
   int _totalEntrenamientos = 0;
   int _totalPartidos = 0;
-  int _entrenamientosSemana = 0;
-  int _partidosProximos = 0;
-  int _golesTemporada = 0;
-  int _partidosFinalizadosTemporada = 0;
-  double _golesPorPartido = 0.0;
 
-  // Lista de equipos
+  // Estadísticas de partidos (agregadas de todos los equipos)
+  int _partidosGanados = 0;
+  int _partidosEmpatados = 0;
+  int _partidosPerdidos = 0;
+
+  // Total de goles
+  int _totalGolesFavor = 0;
+  int _totalGolesContra = 0;
+
+  // Lista de equipos del club
   List<Map<String, dynamic>> _equipos = [];
 
   @override
@@ -80,101 +85,125 @@ class _ClubDashboardState extends State<ClubDashboard> {
           .map((e) => e['id'] as int)
           .toList();
 
-      // Contar jugadores del club
-      int totalJugadores = 0;
-      if (equipoIds.isNotEmpty) {
-        final jugadoresData = await _supabase
-            .from('tjugadores')
-            .select('id')
-            .inFilter('idequipo', equipoIds);
-        totalJugadores = jugadoresData.length;
+      if (equipoIds.isEmpty) {
+        setState(() {
+          _clubName = clubData?['club'] ?? 'Club desconocido';
+          _totalEquipos = 0;
+          _totalJugadores = 0;
+          _totalEntrenamientos = 0;
+          _totalPartidos = 0;
+          _equipos = [];
+          _isLoading = false;
+        });
+        return;
       }
 
-      // Contar entrenamientos del club (últimos 30 días)
-      int totalEntrenamientos = 0;
-      int entrenamientosSemana = 0;
-      if (equipoIds.isNotEmpty) {
-        final entrenamientosData = await _supabase
-            .from('tentrenamientos')
-            .select('id, fecha')
-            .inFilter('idequipo', equipoIds);
-        totalEntrenamientos = entrenamientosData.length;
+      // Contar jugadores de todos los equipos (incluye idequipo para agrupar)
+      final jugadoresData = await _supabase
+          .from('tjugadores')
+          .select('id, idequipo')
+          .inFilter('idequipo', equipoIds);
 
-        // Entrenamientos de la última semana
-        final hace7Dias = DateTime.now().subtract(const Duration(days: 7));
-        entrenamientosSemana = (entrenamientosData as List).where((e) {
-          final fecha = DateTime.tryParse(e['fecha']?.toString() ?? '');
-          return fecha != null && fecha.isAfter(hace7Dias);
-        }).length;
+      // Contar jugadores por equipo
+      final jugadoresPorEquipo = <int, int>{};
+      for (final jugador in jugadoresData as List) {
+        final idequipo = jugador['idequipo'] as int;
+        jugadoresPorEquipo[idequipo] = (jugadoresPorEquipo[idequipo] ?? 0) + 1;
       }
 
-      // Contar partidos del club
-      int totalPartidos = 0;
-      int partidosProximos = 0;
-      int golesTemporada = 0;
-      int partidosFinalizadosTemporada = 0;
+      // Obtener entrenamientos de todos los equipos
+      final entrenamientosData = await _supabase
+          .from('tentrenamientos')
+          .select('id')
+          .inFilter('idequipo', equipoIds);
 
-      if (equipoIds.isNotEmpty) {
-        final partidosData = await _supabase
-            .from('vpartido')
-            .select('id, fecha')
-            .inFilter('idequipo', equipoIds);
-        totalPartidos = partidosData.length;
+      // Obtener partidos de todos los equipos desde la vista vpartido
+      final partidosData = await _supabase
+          .from('vpartido')
+          .select('id, goles, golesrival, finalizado')
+          .inFilter('idequipo', equipoIds);
 
-        // Partidos próximos
-        final ahora = DateTime.now();
-        partidosProximos = (partidosData as List).where((e) {
-          final fecha = DateTime.tryParse(e['fecha']?.toString() ?? '');
-          return fecha != null && fecha.isAfter(ahora);
-        }).length;
+      // Clasificar partidos: solo los finalizados cuentan para estadísticas
+      final jugados = (partidosData as List).where((p) {
+        final finalizado = p['finalizado'];
+        return finalizado == 1 || finalizado == true;
+      }).toList();
 
-        // Obtener temporada actual para calcular goles por partido
-        final configData = await _supabase
-            .from('tconfig')
-            .select('idtemporada')
-            .limit(1)
-            .maybeSingle();
+      // Calcular estadísticas de partidos y goles
+      int ganados = 0;
+      int empatados = 0;
+      int perdidos = 0;
+      int golesFavor = 0;
+      int golesContra = 0;
 
-        if (configData != null) {
-          final idTemporadaActual = configData['idtemporada'] as int?;
+      for (final partido in jugados) {
+        final golesRaw = partido['goles'];
+        final golesRivalRaw = partido['golesrival'];
 
-          if (idTemporadaActual != null) {
-            // Obtener partidos finalizados de la temporada actual con datos de goles
-            final partidosTemporadaData = await _supabase
-                .from('vpartido')
-                .select('id, casafuera, goles, golesrival, finalizado')
-                .inFilter('idequipo', equipoIds)
-                .eq('idtemporada', idTemporadaActual)
-                .eq('finalizado', true);
+        int? goles;
+        int? golesRival;
 
-            for (final partido in partidosTemporadaData as List) {
-              // En vpartido, 'goles' siempre son los goles del equipo
-              // y 'golesrival' los del rival, independientemente de local/visitante
-              final golesEquipo = partido['goles'] as int? ?? 0;
-              golesTemporada += golesEquipo;
-              partidosFinalizadosTemporada++;
-            }
+        if (golesRaw is int) {
+          goles = golesRaw;
+        } else if (golesRaw != null) {
+          goles = int.tryParse(golesRaw.toString());
+        }
+
+        if (golesRivalRaw is int) {
+          golesRival = golesRivalRaw;
+        } else if (golesRivalRaw != null) {
+          golesRival = int.tryParse(golesRivalRaw.toString());
+        }
+
+        // Solo contar partidos que tengan goles registrados
+        if (goles != null && golesRival != null) {
+          golesFavor += goles;
+          golesContra += golesRival;
+
+          if (goles > golesRival) {
+            ganados++;
+          } else if (goles < golesRival) {
+            perdidos++;
+          } else {
+            empatados++;
           }
         }
       }
 
-      // Calcular goles por partido
-      final golesPorPartido = partidosFinalizadosTemporada > 0
-          ? golesTemporada / partidosFinalizadosTemporada
-          : 0.0;
+      // Obtener categorías para mostrar en la lista de equipos
+      final categoriasData = await _supabase
+          .from('tcategorias')
+          .select('id, categoria');
+
+      final categoriasMap = <int, String>{};
+      for (final cat in categoriasData as List) {
+        categoriasMap[cat['id'] as int] = cat['categoria'] as String;
+      }
+
+      // Enriquecer lista de equipos con nombre de categoría y número de jugadores
+      final equiposEnriquecidos = equiposData.map((e) {
+        final equipoId = e['id'] as int;
+        final idCategoria = e['idcategoria'] as int?;
+        return {
+          'id': equipoId,
+          'equipo': e['equipo'],
+          'categoria': idCategoria != null ? categoriasMap[idCategoria] ?? '-' : '-',
+          'numJugadores': jugadoresPorEquipo[equipoId] ?? 0,
+        };
+      }).toList();
 
       setState(() {
         _clubName = clubData?['club'] ?? 'Club desconocido';
         _totalEquipos = equiposData.length;
-        _totalJugadores = totalJugadores;
-        _totalEntrenamientos = totalEntrenamientos;
-        _totalPartidos = totalPartidos;
-        _entrenamientosSemana = entrenamientosSemana;
-        _partidosProximos = partidosProximos;
-        _golesTemporada = golesTemporada;
-        _partidosFinalizadosTemporada = partidosFinalizadosTemporada;
-        _golesPorPartido = golesPorPartido;
-        _equipos = List<Map<String, dynamic>>.from(equiposData);
+        _totalJugadores = jugadoresData.length;
+        _totalEntrenamientos = entrenamientosData.length;
+        _totalPartidos = jugados.length;
+        _partidosGanados = ganados;
+        _partidosEmpatados = empatados;
+        _partidosPerdidos = perdidos;
+        _totalGolesFavor = golesFavor;
+        _totalGolesContra = golesContra;
+        _equipos = List<Map<String, dynamic>>.from(equiposEnriquecidos);
         _isLoading = false;
       });
     } catch (e) {
@@ -196,116 +225,62 @@ class _ClubDashboardState extends State<ClubDashboard> {
       return _buildErrorWidget();
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.business,
-                  color: AppColors.primary,
-                  size: 28,
-                ),
-              ),
-              AppSpacing.hSpaceMd,
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_clubName, style: AppTypography.h4),
-                  Text(
-                    'Panel de administración del club',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.gray500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          AppSpacing.vSpaceXl,
-
-          // KPIs
+          // KPIs superiores
           _buildKpiRow(),
-          AppSpacing.vSpaceXl,
-
-          // Equipos y actividad reciente
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 2, child: _buildEquiposList()),
-              AppSpacing.hSpaceLg,
-              Expanded(child: _buildActividadCard()),
-            ],
+          AppSpacing.vSpaceMd,
+          // Fila de gráficos y resumen (misma altura)
+          SizedBox(
+            height: 280,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Resultados
+                Expanded(child: _buildResultadosCard()),
+                AppSpacing.hSpaceMd,
+                // Goles
+                Expanded(child: _buildGolesCard()),
+                AppSpacing.hSpaceMd,
+                // Resumen del club (misma altura que Resultados y Goles)
+                Expanded(child: _buildResumenClubCard()),
+              ],
+            ),
           ),
+          AppSpacing.vSpaceMd,
+          // Equipos del club - Todo el ancho (solo lectura)
+          Expanded(child: _buildEquiposListCard()),
         ],
       ),
     );
   }
 
   Widget _buildKpiRow() {
-    return Wrap(
-      spacing: 24,
-      runSpacing: 24,
-      children: [
-        _buildKpiCard(
-          icon: Icons.groups,
-          title: 'Equipos',
-          value: _totalEquipos.toString(),
-          color: AppColors.primary,
-        ),
-        _buildKpiCard(
-          icon: Icons.person,
-          title: 'Jugadores',
-          value: _totalJugadores.toString(),
-          color: AppColors.success,
-        ),
-        _buildKpiCard(
-          icon: Icons.fitness_center,
-          title: 'Entrenamientos',
-          value: _totalEntrenamientos.toString(),
-          subtitle: '+$_entrenamientosSemana esta semana',
-          color: AppColors.info,
-        ),
-        _buildKpiCard(
-          icon: Icons.sports_soccer,
-          title: 'Partidos',
-          value: _totalPartidos.toString(),
-          subtitle: '$_partidosProximos próximos',
-          color: AppColors.warning,
-        ),
-        _buildKpiCard(
-          icon: Icons.sports_score,
-          title: 'Goles por Partido',
-          value: _golesPorPartido.toStringAsFixed(1),
-          subtitle: '$_golesTemporada goles en $_partidosFinalizadosTemporada partidos',
-          color: AppColors.accent,
-        ),
-      ],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: _buildKpiCard(Icons.groups, 'Equipos', _totalEquipos.toString())),
+          AppSpacing.hSpaceMd,
+          Expanded(child: _buildKpiCard(Icons.people, 'Jugadores', _totalJugadores.toString())),
+          AppSpacing.hSpaceMd,
+          Expanded(child: _buildKpiCard(Icons.fitness_center, 'Entrenamientos', _totalEntrenamientos.toString())),
+          AppSpacing.hSpaceMd,
+          Expanded(child: _buildKpiCard(Icons.sports_soccer, 'Partidos', _totalPartidos.toString())),
+        ],
+      ),
     );
   }
 
-  Widget _buildKpiCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    String? subtitle,
-    required Color color,
-  }) {
+  Widget _buildKpiCard(IconData icon, String title, String value, {String? subtitle}) {
     return Container(
-      width: 240,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: AppColors.gray900.withValues(alpha: 0.05),
@@ -317,39 +292,22 @@ class _ClubDashboardState extends State<ClubDashboard> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(icon, color: AppColors.primary, size: 24),
           ),
-          AppSpacing.hSpaceLg,
+          AppSpacing.hSpaceMd,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  value,
-                  style: AppTypography.h2.copyWith(
-                    color: AppColors.gray900,
-                    height: 1.0,
-                  ),
-                ),
-                Text(
-                  title,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.gray500,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: AppTypography.caption.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                Text(value, style: AppTypography.h4.copyWith(color: AppColors.gray900, fontWeight: FontWeight.w700)),
+                Text(title, style: AppTypography.bodySmall.copyWith(color: AppColors.gray500)),
+                if (subtitle != null) Text(subtitle, style: AppTypography.caption.copyWith(color: AppColors.primary)),
               ],
             ),
           ),
@@ -358,173 +316,502 @@ class _ClubDashboardState extends State<ClubDashboard> {
     );
   }
 
-  Widget _buildEquiposList() {
+  Widget _buildResultadosCard() {
+    final total = _partidosGanados + _partidosEmpatados + _partidosPerdidos;
+
+    final colorGanados = AppColors.primary;
+    const colorEmpatados = Color(0xFF9CA3AF);
+    const colorPerdidos = Color(0xFFE57373);
+
+    String emptyMessage;
+    if (_totalPartidos == 0) {
+      emptyMessage = 'No hay partidos registrados';
+    } else if (total == 0) {
+      emptyMessage = 'Registra goles en los $_totalPartidos partidos';
+    } else {
+      emptyMessage = '';
+    }
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.gray900.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        boxShadow: [BoxShadow(color: AppColors.gray900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: total == 0
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.sports_soccer_outlined, size: 48, color: AppColors.gray300),
+                  AppSpacing.vSpaceSm,
+                  Text(emptyMessage, style: AppTypography.bodySmall.copyWith(color: AppColors.gray400), textAlign: TextAlign.center),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                Flexible(
+                  flex: 1,
+                  fit: FlexFit.tight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 4, top: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.emoji_events_outlined, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text('Resultados', style: AppTypography.labelSmall.copyWith(color: AppColors.gray900, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        if (_totalPartidos > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: AppColors.gray100, borderRadius: BorderRadius.circular(8)),
+                            child: Text('$_totalPartidos', style: AppTypography.caption.copyWith(color: AppColors.gray600, fontWeight: FontWeight.w600)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Flexible(
+                  flex: 8,
+                  fit: FlexFit.tight,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final minDimension = constraints.maxWidth < constraints.maxHeight
+                          ? constraints.maxWidth
+                          : constraints.maxHeight;
+                      final centerRadius = minDimension * 0.25;
+                      final chartRadius = (minDimension / 2) - centerRadius - 4;
+
+                      return PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: centerRadius,
+                          sections: [
+                            PieChartSectionData(
+                              value: _partidosGanados.toDouble(),
+                              color: colorGanados,
+                              title: '$_partidosGanados',
+                              titleStyle: AppTypography.labelMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                              radius: chartRadius,
+                            ),
+                            PieChartSectionData(
+                              value: _partidosEmpatados.toDouble(),
+                              color: colorEmpatados,
+                              title: '$_partidosEmpatados',
+                              titleStyle: AppTypography.labelMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                              radius: chartRadius,
+                            ),
+                            PieChartSectionData(
+                              value: _partidosPerdidos.toDouble(),
+                              color: colorPerdidos,
+                              title: '$_partidosPerdidos',
+                              titleStyle: AppTypography.labelMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                              radius: chartRadius,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Flexible(
+                  flex: 1,
+                  fit: FlexFit.tight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildLegendItem('Ganados', _partidosGanados, colorGanados),
+                        _buildLegendItem('Empatados', _partidosEmpatados, colorEmpatados),
+                        _buildLegendItem('Perdidos', _partidosPerdidos, colorPerdidos),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, int value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+        AppSpacing.hSpaceXs,
+        Text('$label: $value', style: AppTypography.labelSmall.copyWith(color: AppColors.gray700, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
+  Widget _buildGolesCard() {
+    final colorFavor = AppColors.primary;
+    const colorContra = Color(0xFFE57373);
+
+    final mediaFavor = _totalPartidos > 0 ? _totalGolesFavor / _totalPartidos : 0.0;
+    final mediaContra = _totalPartidos > 0 ? _totalGolesContra / _totalPartidos : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: AppColors.gray900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, right: 4, top: 4),
+            child: Row(
+              children: [
+                Icon(Icons.sports_soccer, size: 14, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Text('Goles', style: AppTypography.labelSmall.copyWith(color: AppColors.gray900, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = (constraints.maxWidth - 20) / 2;
+                final availableHeight = constraints.maxHeight - 50;
+                final circleSize = availableWidth < availableHeight
+                    ? availableWidth * 0.8
+                    : availableHeight * 0.8;
+                final fontSize = (circleSize * 0.6).clamp(28.0, 56.0);
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: circleSize,
+                            height: circleSize,
+                            decoration: BoxDecoration(
+                              color: colorFavor.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$_totalGolesFavor',
+                                style: AppTypography.h1.copyWith(color: colorFavor, fontWeight: FontWeight.w800, fontSize: fontSize),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text('A FAVOR', style: AppTypography.labelSmall.copyWith(color: colorFavor, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${mediaFavor.toStringAsFixed(2)}/partido',
+                            style: AppTypography.caption.copyWith(color: colorFavor.withValues(alpha: 0.8), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: constraints.maxHeight * 0.6, color: AppColors.gray200),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: circleSize,
+                            height: circleSize,
+                            decoration: BoxDecoration(
+                              color: colorContra.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$_totalGolesContra',
+                                style: AppTypography.h1.copyWith(color: colorContra, fontWeight: FontWeight.w800, fontSize: fontSize),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text('EN CONTRA', style: AppTypography.labelSmall.copyWith(color: colorContra, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${mediaContra.toStringAsFixed(2)}/partido',
+                            style: AppTypography.caption.copyWith(color: colorContra.withValues(alpha: 0.8), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEquiposListCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: AppColors.gray900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Mis Equipos', style: AppTypography.h6),
-              TextButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Nuevo'),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.groups_outlined, color: AppColors.primary, size: 18),
+              ),
+              AppSpacing.hSpaceSm,
+              Text('Equipos del Club', style: AppTypography.labelLarge.copyWith(color: AppColors.gray900, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$_totalEquipos ${_totalEquipos == 1 ? 'equipo' : 'equipos'}',
+                  style: AppTypography.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
           AppSpacing.vSpaceMd,
-          if (_equipos.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.groups_outlined,
-                      size: 48,
-                      color: AppColors.gray300,
+          // Grid de equipos
+          Expanded(
+            child: _equipos.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.groups_outlined, size: 48, color: AppColors.gray300),
+                        AppSpacing.vSpaceSm,
+                        Text('No hay equipos registrados', style: AppTypography.bodySmall.copyWith(color: AppColors.gray400), textAlign: TextAlign.center),
+                      ],
                     ),
-                    AppSpacing.vSpaceMd,
-                    Text(
-                      'No hay equipos registrados',
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.gray500,
-                      ),
+                  )
+                : GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 240,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.8,
                     ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _equipos.length > 10 ? 10 : _equipos.length,
-              separatorBuilder: (_, __) => const Divider(),
-              itemBuilder: (context, index) {
-                final equipo = _equipos[index];
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.sports_soccer,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
+                    itemCount: _equipos.length,
+                    itemBuilder: (context, index) {
+                      final equipo = _equipos[index];
+                      return _buildEquipoCard(equipo);
+                    },
                   ),
-                  title: Text(
-                    equipo['equipo'] ?? 'Sin nombre',
-                    style: AppTypography.labelMedium,
-                  ),
-                  subtitle: Text(
-                    'Categoría: ${equipo['idcategoria'] ?? '-'}',
-                    style: AppTypography.caption,
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
-                );
-              },
-            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActividadCard() {
+  Widget _buildEquipoCard(Map<String, dynamic> equipo) {
+    final nombreEquipo = equipo['equipo']?.toString() ?? 'Sin nombre';
+    final categoria = equipo['categoria']?.toString() ?? '-';
+    final numJugadores = equipo['numJugadores'] as int? ?? 0;
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.gray50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Column(
+        children: [
+          // Flex 7: Icono + Nombre y Categoría
+          Expanded(
+            flex: 7,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.sports_soccer, color: AppColors.primary, size: 16),
+                ),
+                AppSpacing.hSpaceSm,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        nombreEquipo,
+                        style: AppTypography.labelMedium.copyWith(
+                          color: AppColors.gray900,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        categoria,
+                        style: AppTypography.caption.copyWith(color: AppColors.gray500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Línea de separación
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            color: AppColors.gray200,
+          ),
+          // Flex 3: Nº Jugadores
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                Icon(Icons.person_outline, color: AppColors.primary, size: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Nº Jugadores: $numJugadores',
+                    style: AppTypography.labelSmall.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResumenClubCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.gray900.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppColors.gray900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Actividad Reciente', style: AppTypography.h6),
-          AppSpacing.vSpaceMd,
-          _buildActividadItem(
-            icon: Icons.fitness_center,
-            title: 'Entrenamientos',
-            value: '$_entrenamientosSemana esta semana',
-            color: AppColors.info,
+          // Header con nombre del club
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.business, color: AppColors.primary, size: 18),
+              ),
+              AppSpacing.hSpaceSm,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_clubName, style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Panel de administración', style: AppTypography.caption.copyWith(color: AppColors.gray500)),
+                  ],
+                ),
+              ),
+            ],
           ),
           AppSpacing.vSpaceMd,
-          _buildActividadItem(
-            icon: Icons.sports_soccer,
-            title: 'Próximos partidos',
-            value: '$_partidosProximos programados',
-            color: AppColors.warning,
+          // Resumen de actividad
+          Text('Resumen de Actividad', style: AppTypography.labelSmall.copyWith(color: AppColors.gray900, fontWeight: FontWeight.w600)),
+          AppSpacing.vSpaceSm,
+          _buildResumenItem(
+            icon: Icons.groups,
+            label: 'Total Equipos',
+            value: _totalEquipos.toString(),
+            color: AppColors.primary,
           ),
-          AppSpacing.vSpaceMd,
-          _buildActividadItem(
+          AppSpacing.vSpaceXs,
+          _buildResumenItem(
             icon: Icons.people,
-            title: 'Jugadores activos',
+            label: 'Total Jugadores',
             value: _totalJugadores.toString(),
             color: AppColors.success,
           ),
+          AppSpacing.vSpaceXs,
+          _buildResumenItem(
+            icon: Icons.fitness_center,
+            label: 'Entrenamientos',
+            value: _totalEntrenamientos.toString(),
+            color: AppColors.info,
+          ),
+          AppSpacing.vSpaceXs,
+          _buildResumenItem(
+            icon: Icons.sports_soccer,
+            label: 'Partidos Jugados',
+            value: _totalPartidos.toString(),
+            color: AppColors.warning,
+          ),
+          // Ratio victorias
+          if (_totalPartidos > 0) ...[
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Ratio Victorias', style: AppTypography.labelSmall.copyWith(color: AppColors.gray500)),
+                Text(
+                  '${(_partidosGanados / _totalPartidos * 100).toStringAsFixed(0)}%',
+                  style: AppTypography.h6.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildActividadItem({
+  Widget _buildResumenItem({
     required IconData icon,
-    required String title,
+    required String label,
     required String value,
     required Color color,
   }) {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(icon, color: color, size: 20),
+          child: Icon(icon, color: color, size: 16),
         ),
-        AppSpacing.hSpaceMd,
+        AppSpacing.hSpaceSm,
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: AppTypography.labelSmall),
-              Text(
-                value,
-                style: AppTypography.labelMedium.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+          child: Text(label, style: AppTypography.caption.copyWith(color: AppColors.gray600)),
         ),
+        Text(value, style: AppTypography.labelMedium.copyWith(color: AppColors.gray900, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -540,10 +827,7 @@ class _ClubDashboardState extends State<ClubDashboard> {
           AppSpacing.vSpaceSm,
           Text(_error ?? 'Error desconocido', style: AppTypography.bodySmall),
           AppSpacing.vSpaceMd,
-          ElevatedButton(
-            onPressed: _loadData,
-            child: const Text('Reintentar'),
-          ),
+          ElevatedButton(onPressed: _loadData, child: const Text('Reintentar')),
         ],
       ),
     );

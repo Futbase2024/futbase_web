@@ -7,6 +7,9 @@ import '../../bloc/trainings_event.dart';
 import '../../bloc/trainings_state.dart';
 import 'trainings_table.dart';
 import 'trainings_calendar.dart';
+import 'trainings_weekly_calendar.dart';
+import 'trainings_stats_panel.dart';
+import 'attendance_trend_chart.dart';
 import 'trainings_filter_bar.dart';
 import 'trainings_empty_state.dart';
 import 'trainings_kpis.dart';
@@ -16,15 +19,18 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
+import '../../../../core/constants/user_roles.dart';
 
 /// Widget principal de entrenamientos (SIN Scaffold para integrar en Dashboard)
 class TrainingsContent extends StatefulWidget {
   const TrainingsContent({
     super.key,
     required this.user,
+    this.userRole,
   });
 
   final UsuariosEntity user;
+  final UserRole? userRole;
 
   @override
   State<TrainingsContent> createState() => _TrainingsContentState();
@@ -32,9 +38,14 @@ class TrainingsContent extends StatefulWidget {
 
 class _TrainingsContentState extends State<TrainingsContent> {
   late final TrainingsBloc _trainingsBloc;
-  String _viewMode = 'lista'; // 'lista' o 'calendario'
   String _searchQuery = '';
   DateTime _selectedMonth = DateTime.now();
+
+  /// Determina si es vista de club/coordinador
+  bool get _isClubView {
+    final role = widget.userRole;
+    return role == UserRole.club || role == UserRole.coordinador;
+  }
 
   @override
   void initState() {
@@ -50,9 +61,26 @@ class _TrainingsContentState extends State<TrainingsContent> {
   }
 
   void _loadTrainings() {
-    final idequipo = widget.user.idequipo;
-    if (idequipo > 0) {
-      _trainingsBloc.add(TrainingsLoadRequested(idequipo: idequipo));
+    if (_isClubView) {
+      // Para Club/Coordinador: cargar todos los equipos del club
+      final idclub = widget.user.idclub;
+      if (idclub > 0) {
+        _trainingsBloc.add(TrainingsLoadByClubRequested(idclub: idclub));
+      } else {
+        // Si no tiene club asignado, emitir estado vacío
+        debugPrint('⚠️ [TrainingsContent] Usuario sin club asignado (idclub=$idclub)');
+        _trainingsBloc.add(const TrainingsLoadByClubRequested(idclub: -1));
+      }
+    } else {
+      // Para Entrenador: cargar solo su equipo
+      final idequipo = widget.user.idequipo;
+      if (idequipo > 0) {
+        _trainingsBloc.add(TrainingsLoadRequested(idequipo: idequipo));
+      } else {
+        // Si no tiene equipo asignado, emitir estado vacío
+        debugPrint('⚠️ [TrainingsContent] Usuario sin equipo asignado (idequipo=$idequipo)');
+        _trainingsBloc.add(const TrainingsLoadRequested(idequipo: -1));
+      }
     }
   }
 
@@ -63,27 +91,37 @@ class _TrainingsContentState extends State<TrainingsContent> {
         idequipo: widget.user.idequipo,
         trainingTypes: _getCurrentTrainingTypes(),
         onSaved: () {
-          _trainingsBloc.add(TrainingsRefreshRequested(idequipo: widget.user.idequipo));
+          if (_isClubView) {
+            _trainingsBloc.add(TrainingsLoadByClubRequested(idclub: widget.user.idclub));
+          } else {
+            _trainingsBloc.add(TrainingsRefreshRequested(idequipo: widget.user.idequipo));
+          }
         },
       ),
     );
   }
 
   void _onEditTraining(Map<String, dynamic> training) {
+    final idequipo = training['idequipo'] as int? ?? widget.user.idequipo;
     showDialog(
       context: context,
       builder: (context) => TrainingFormDialog(
-        idequipo: widget.user.idequipo,
+        idequipo: idequipo,
         training: training,
         trainingTypes: _getCurrentTrainingTypes(),
         onSaved: () {
-          _trainingsBloc.add(TrainingsRefreshRequested(idequipo: widget.user.idequipo));
+          if (_isClubView) {
+            _trainingsBloc.add(TrainingsLoadByClubRequested(idclub: widget.user.idclub));
+          } else {
+            _trainingsBloc.add(TrainingsRefreshRequested(idequipo: idequipo));
+          }
         },
       ),
     );
   }
 
   void _onDeleteTraining(Map<String, dynamic> training) {
+    final idequipo = training['idequipo'] as int? ?? widget.user.idequipo;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -99,7 +137,7 @@ class _TrainingsContentState extends State<TrainingsContent> {
               Navigator.of(context).pop();
               _trainingsBloc.add(TrainingDeleteRequested(
                 id: training['id'] as int,
-                idequipo: widget.user.idequipo,
+                idequipo: idequipo,
               ));
             },
             style: ElevatedButton.styleFrom(
@@ -114,11 +152,12 @@ class _TrainingsContentState extends State<TrainingsContent> {
   }
 
   void _onAttendance(Map<String, dynamic> training) {
+    final idequipo = training['idequipo'] as int? ?? widget.user.idequipo;
     showDialog(
       context: context,
       builder: (context) => AttendanceDialog(
         identrenamiento: training['id'] as int,
-        idequipo: widget.user.idequipo,
+        idequipo: idequipo,
         trainingDate: training['fecha']?.toString() ?? '',
       ),
     );
@@ -141,16 +180,9 @@ class _TrainingsContentState extends State<TrainingsContent> {
           return switch (state) {
             TrainingsInitial() => _buildLoadingState(),
             TrainingsLoading() => _buildLoadingState(),
-            TrainingsLoaded(
-              :final trainings,
-              :final filteredTrainings,
-            ) =>
-              _buildLoadedContent(
-                trainings: trainings,
-                filteredTrainings: filteredTrainings,
-              ),
+            TrainingsLoaded() => _buildLoadedContent(state),
             TrainingsError(:final message) => _buildErrorWidget(message),
-            _ => _buildLoadingState(),
+            AttendanceState() || _ => _buildLoadingState(),
           };
         },
       ),
@@ -169,43 +201,73 @@ class _TrainingsContentState extends State<TrainingsContent> {
     );
   }
 
-  Widget _buildLoadedContent({
-    required List<Map<String, dynamic>> trainings,
-    required List<Map<String, dynamic>> filteredTrainings,
-  }) {
+  Widget _buildLoadedContent(TrainingsLoaded state) {
+    final trainings = state.trainings;
+    final filteredTrainings = state.filteredTrainings;
+
     // Filtrar localmente por búsqueda
     final searchFiltered = _searchQuery.isEmpty
         ? filteredTrainings
         : filteredTrainings.where((t) {
             final nombre = t['nombre']?.toString().toLowerCase() ?? '';
             final obs = t['observaciones']?.toString().toLowerCase() ?? '';
+            final equipo = t['nombre_equipo']?.toString().toLowerCase() ?? '';
             final query = _searchQuery.toLowerCase();
-            return nombre.contains(query) || obs.contains(query);
+            return nombre.contains(query) || obs.contains(query) || equipo.contains(query);
           }).toList();
 
     return SafeArea(
       child: CustomScrollView(
         slivers: [
           // Header
-          SliverToBoxAdapter(
-            child: _buildHeader(trainings.length),
+          SliverToobiAdapter(
+            child: _buildHeader(state),
           ),
 
-          // KPIs
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
-              child: TrainingsKpis(
-                todayTrainings: _calculateTodayTrainings(trainings),
-                averageAttendance: _calculateAverageAttendance(trainings),
-                completedThisWeek: _calculateCompletedThisWeek(trainings),
-                upcomingThisWeek: _calculateUpcomingThisWeek(trainings),
+          // Contenido específico según rol
+          if (_isClubView) ...[
+            // Panel de estadísticas para Club/Coordinador
+            SliverToobiAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(32, 16, 32, 8),
+                child: TrainingsStatsPanel(
+                  teams: state.teams,
+                  attendanceByTeam: state.attendanceByTeam,
+                  overallAttendance: state.overallAttendance,
+                  trainingsByTimeSlot: state.trainingsByTimeSlot,
+                  trainingsByField: state.trainingsByField,
+                  trainingsByTeam: state.trainingsByTeam,
+                ),
               ),
             ),
-          ),
+
+            // Gráfico de tendencia
+            SliverToobiAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
+                child: AttendanceTrendChart(
+                  weeklyData: _generateTrendData(state),
+                  height: 180,
+                ),
+              ),
+            ),
+          ] else ...[
+            // KPIs para Entrenador
+            SliverToobiAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
+                child: TrainingsKpis(
+                  todayTrainings: _calculateTodayTrainings(trainings),
+                  averageAttendance: state.overallAttendance,
+                  completedThisWeek: _calculateCompletedThisWeek(trainings),
+                  upcomingThisWeek: _calculateUpcomingThisWeek(trainings),
+                ),
+              ),
+            ),
+          ],
 
           // Barra de filtros
-          SliverToBoxAdapter(
+          SliverToobiAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
               child: TrainingsFilterBar(
@@ -218,8 +280,8 @@ class _TrainingsContentState extends State<TrainingsContent> {
           ),
 
           // Indicador de búsqueda activa (solo en vista lista)
-          if (_searchQuery.isNotEmpty && _viewMode == 'lista')
-            SliverToBoxAdapter(
+          if (_searchQuery.isNotEmpty && state.viewMode == 'list')
+            SliverToobiAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
                 child: Row(
@@ -245,12 +307,10 @@ class _TrainingsContentState extends State<TrainingsContent> {
             ),
 
           // Contenido según vista
-          _viewMode == 'calendario'
-              ? _buildCalendarView(trainings)
-              : _buildListView(searchFiltered),
+          _buildViewContent(state, searchFiltered),
 
           // Espacio final
-          const SliverToBoxAdapter(
+          const SliverToobiAdapter(
             child: SizedBox(height: 32),
           ),
         ],
@@ -258,17 +318,61 @@ class _TrainingsContentState extends State<TrainingsContent> {
     );
   }
 
-  /// Vista de calendario
-  Widget _buildCalendarView(List<Map<String, dynamic>> trainings) {
-    return SliverToBoxAdapter(
+  /// Construye el contenido según la vista seleccionada
+  Widget _buildViewContent(TrainingsLoaded state, List<Map<String, dynamic>> trainings) {
+    switch (state.viewMode) {
+      case 'week':
+        return _buildWeeklyView(state);
+      case 'month':
+        return _buildMonthView(state.trainings);
+      case 'list':
+      default:
+        return _buildListView(trainings, state);
+    }
+  }
+
+  /// Vista de calendario semanal
+  Widget _buildWeeklyView(TrainingsLoaded state) {
+    return SliverToobiAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: SizedBox(
+          height: 500,
+          child: TrainingsWeeklyCalendar(
+            trainings: state.getWeekTrainings(),
+            teams: state.teams,
+            focusedWeek: state.focusedWeek,
+            onTrainingTap: _onAttendance,
+            onPreviousWeek: () {
+              _trainingsBloc.add(WeekNavigationRequested(
+                focusedWeek: state.focusedWeek,
+                goToNext: false,
+              ));
+            },
+            onNextWeek: () {
+              _trainingsBloc.add(WeekNavigationRequested(
+                focusedWeek: state.focusedWeek,
+                goToNext: true,
+              ));
+            },
+            onToday: () {
+              _trainingsBloc.add(CalendarViewChanged(viewMode: 'week'));
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Vista de calendario mensual
+  Widget _buildMonthView(List<Map<String, dynamic>> trainings) {
+    return SliverToobiAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: TrainingsCalendar(
           trainings: trainings,
           selectedDate: _selectedMonth,
-          onTrainingTap: (training) {
-            _onAttendance(training);
-          },
+          onTrainingTap: _onAttendance,
           onDateSelected: (date) {
             setState(() => _selectedMonth = date);
           },
@@ -278,7 +382,7 @@ class _TrainingsContentState extends State<TrainingsContent> {
   }
 
   /// Vista de lista/tabla
-  Widget _buildListView(List<Map<String, dynamic>> trainings) {
+  Widget _buildListView(List<Map<String, dynamic>> trainings, TrainingsLoaded state) {
     if (trainings.isEmpty) {
       return SliverFillRemaining(
         child: TrainingsEmptyState(
@@ -286,25 +390,33 @@ class _TrainingsContentState extends State<TrainingsContent> {
           onClearFilters: () {
             setState(() => _searchQuery = '');
           },
-          onCreateTraining: _onCreateTraining,
+          onCreateTraining: _isClubView ? null : _onCreateTraining,
         ),
       );
     }
 
-    return SliverToBoxAdapter(
+    return SliverToobiAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: TrainingsTable(
           trainings: trainings,
-          onEdit: _onEditTraining,
-          onDelete: _onDeleteTraining,
+          onEdit: _isClubView ? null : _onEditTraining,
+          onDelete: _isClubView ? null : _onDeleteTraining,
           onAttendance: _onAttendance,
+          showTeamColumn: _isClubView,
         ),
       ),
     );
   }
 
-  Widget _buildHeader(int totalTrainings) {
+  Widget _buildHeader(TrainingsLoaded state) {
+    final totalTrainings = state.trainings.length;
+    final viewMode = state.viewMode;
+
+    String title = _isClubView
+        ? 'Entrenamientos del Club'
+        : 'Gestión de Entrenamientos';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       decoration: BoxDecoration(
@@ -320,13 +432,26 @@ class _TrainingsContentState extends State<TrainingsContent> {
       child: Row(
         children: [
           // Título
-          Text(
-            'Gestión de Entrenamientos',
-            style: AppTypography.h5.copyWith(
-              color: AppColors.gray900,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.h5.copyWith(
+                    color: AppColors.gray900,
+                  ),
+                ),
+                if (_isClubView && state.teams.isNotEmpty)
+                  Text(
+                    '${state.teams.length} equipos',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.gray500,
+                    ),
+                  ),
+              ],
             ),
           ),
-          const Spacer(),
 
           // Toggle de vistas
           Container(
@@ -339,16 +464,22 @@ class _TrainingsContentState extends State<TrainingsContent> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _ViewToggleButton(
-                  label: 'Vista Calendario',
-                  icon: Icons.calendar_today_outlined,
-                  isSelected: _viewMode == 'calendario',
-                  onTap: () => setState(() => _viewMode = 'calendario'),
+                  label: 'Semana',
+                  icon: Icons.view_week_outlined,
+                  isSelected: viewMode == 'week',
+                  onTap: () => _trainingsBloc.add(const CalendarViewChanged(viewMode: 'week')),
                 ),
                 _ViewToggleButton(
-                  label: 'Vista Lista',
+                  label: 'Mes',
+                  icon: Icons.calendar_today_outlined,
+                  isSelected: viewMode == 'month',
+                  onTap: () => _trainingsBloc.add(const CalendarViewChanged(viewMode: 'month')),
+                ),
+                _ViewToggleButton(
+                  label: 'Lista',
                   icon: Icons.list_alt,
-                  isSelected: _viewMode == 'lista',
-                  onTap: () => setState(() => _viewMode = 'lista'),
+                  isSelected: viewMode == 'list',
+                  onTap: () => _trainingsBloc.add(const CalendarViewChanged(viewMode: 'list')),
                 ),
               ],
             ),
@@ -380,22 +511,24 @@ class _TrainingsContentState extends State<TrainingsContent> {
               ],
             ),
           ),
-          AppSpacing.hSpaceMd,
 
-          // Botón Nueva Sesión
-          ElevatedButton.icon(
-            onPressed: _onCreateTraining,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Nueva Sesión'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          // Botón Nueva Sesión (solo para entrenadores)
+          if (!_isClubView) ...[
+            AppSpacing.hSpaceMd,
+            ElevatedButton.icon(
+              onPressed: _onCreateTraining,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Nueva Sesión'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -450,6 +583,40 @@ class _TrainingsContentState extends State<TrainingsContent> {
     );
   }
 
+  /// Genera datos de tendencia simulados (en producción vendrían de la BD)
+  List<AttendanceWeekData> _generateTrendData(TrainingsLoaded state) {
+    // TODO: Obtener datos reales de tendencia desde Supabase
+    // Por ahora generamos datos de ejemplo basados en la asistencia actual
+    final now = DateTime.now();
+    final data = <AttendanceWeekData>[];
+
+    for (var i = 7; i >= 0; i--) {
+      final weekStart = now.subtract(Duration(days: now.weekday - 1 + (i * 7)));
+      final weekNumber = _getWeekNumber(weekStart);
+
+      // Simular variación basada en la asistencia actual
+      final baseAttendance = state.overallAttendance;
+      final variation = (i - 4) * 2.5; // Tendencia hacia arriba
+      final simulatedAttendance = (baseAttendance + variation).clamp(50.0, 100.0);
+
+      data.add(AttendanceWeekData(
+        weekNumber: weekNumber,
+        startDate: weekStart,
+        percentage: double.parse(simulatedAttendance.toStringAsFixed(1)),
+        totalTrainings: (state.teams.length * (8 - i) / 2).round().clamp(1, 20),
+        totalPresent: 0,
+      ));
+    }
+
+    return data;
+  }
+
+  int _getWeekNumber(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final days = date.difference(firstDayOfYear).inDays;
+    return ((days + firstDayOfYear.weekday) / 7).ceil();
+  }
+
   /// Calcula entrenamientos de hoy
   int _calculateTodayTrainings(List<Map<String, dynamic>> trainings) {
     final now = DateTime.now();
@@ -458,7 +625,6 @@ class _TrainingsContentState extends State<TrainingsContent> {
       final fechaRaw = t['fecha'];
       DateTime? fecha;
 
-      // Intentar parsear directamente si es DateTime
       if (fechaRaw is DateTime) {
         fecha = fechaRaw;
       } else {
@@ -517,12 +683,11 @@ class _TrainingsContentState extends State<TrainingsContent> {
       return !fechaSolo.isBefore(today) && fechaSolo.isBefore(endOfWeek);
     }).length;
   }
+}
 
-  double _calculateAverageAttendance(List<Map<String, dynamic>> trainings) {
-    // TODO: Calcular basado en datos de asistencia real
-    // Por ahora retorna 0
-    return 0.0;
-  }
+/// Adaptador para sliver
+class SliverToobiAdapter extends SliverToBoxAdapter {
+  const SliverToobiAdapter({super.key, required super.child});
 }
 
 /// Botón de toggle para cambiar entre vistas
@@ -545,7 +710,7 @@ class _ViewToggleButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
@@ -564,15 +729,16 @@ class _ViewToggleButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 16,
+              size: 14,
               color: isSelected ? AppColors.primary : AppColors.gray500,
             ),
-            AppSpacing.hSpaceXs,
+            const SizedBox(width: 4),
             Text(
               label,
               style: AppTypography.labelSmall.copyWith(
                 color: isSelected ? AppColors.primary : AppColors.gray500,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: 11,
               ),
             ),
           ],

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -162,15 +163,84 @@ class _MatchFormDialogState extends State<MatchFormDialog> {
     }
   }
 
-  Future<void> _selectTime(TimeOfDay? currentTime, void Function(TimeOfDay) onSelected) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: currentTime ?? const TimeOfDay(hour: 10, minute: 0),
-    );
+  void _selectTime(TimeOfDay? currentTime, void Function(TimeOfDay) onSelected) {
+    final initial = currentTime ?? const TimeOfDay(hour: 10, minute: 0);
 
-    if (picked != null) {
-      onSelected(picked);
-    }
+    DateTime tempDateTime = DateTime(2024, 1, 1, initial.hour, initial.minute);
+
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (context) => Container(
+        height: 300,
+        padding: const EdgeInsets.only(top: 6),
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.gray50,
+                border: Border(bottom: BorderSide(color: AppColors.gray200)),
+              ),
+              child: Row(
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Seleccionar hora',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.gray700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onSelected(TimeOfDay(
+                        hour: tempDateTime.hour,
+                        minute: tempDateTime.minute,
+                      ));
+                    },
+                    child: Text(
+                      'Hecho',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: MediaQuery(
+                data: const MediaQueryData(alwaysUse24HourFormat: true),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: DateTime(2024, 1, 1, initial.hour, initial.minute),
+                  onDateTimeChanged: (dateTime) {
+                    tempDateTime = dateTime;
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

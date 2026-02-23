@@ -9,12 +9,12 @@ class TrainingsEmptyState extends StatelessWidget {
     super.key,
     required this.hasFilters,
     required this.onClearFilters,
-    required this.onCreateTraining,
+    this.onCreateTraining,
   });
 
   final bool hasFilters;
   final VoidCallback onClearFilters;
-  final VoidCallback onCreateTraining;
+  final VoidCallback? onCreateTraining;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +66,7 @@ class TrainingsEmptyState extends StatelessWidget {
                 ),
               ),
             )
-          else
+          else if (onCreateTraining != null)
             ElevatedButton.icon(
               onPressed: onCreateTraining,
               icon: const Icon(Icons.add),

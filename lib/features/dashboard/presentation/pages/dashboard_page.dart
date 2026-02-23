@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -8,11 +7,12 @@ import '../../../../core/constants/user_roles.dart';
 import '../widgets/widgets.dart';
 import '../widgets/dashboards/dashboards.dart';
 import '../../../auth/bloc/auth_bloc.dart';
-import '../../../auth/bloc/auth_event.dart';
 import '../../../players/presentation/widgets/players_content.dart';
+import '../../../teams/presentation/widgets/teams_content.dart';
 import '../../../trainings/presentation/widgets/trainings_content.dart';
 import '../../../matches/presentation/widgets/matches_content.dart';
 import '../../../results/presentation/widgets/results_content.dart';
+import '../../../scouting/presentation/pages/scouting_page.dart';
 
 /// Página principal del Dashboard
 ///
@@ -42,8 +42,26 @@ class _DashboardPageState extends State<DashboardPage> {
     final authState = context.read<AuthBloc>().state;
     final user = authState.user;
 
-    if (user != null && authState.role == UserRole.entrenador && user.idequipo > 0) {
-      try {
+    if (user == null) return;
+
+    try {
+      // Para rol club: cargar datos directamente del club
+      if (authState.role == UserRole.club && user.idclub > 0) {
+        final clubResponse = await Supabase.instance.client
+            .from('tclubes')
+            .select('club, escudo')
+            .eq('id', user.idclub)
+            .maybeSingle();
+
+        if (clubResponse != null && mounted) {
+          setState(() {
+            _clubName = clubResponse['club'] as String?;
+            _clubEscudo = clubResponse['escudo'] as String?;
+          });
+        }
+      }
+      // Para rol entrenador: cargar datos del equipo y luego del club
+      else if (authState.role == UserRole.entrenador && user.idequipo > 0) {
         // Obtener datos del equipo
         final equipoResponse = await Supabase.instance.client
             .from('tequipos')
@@ -67,9 +85,9 @@ class _DashboardPageState extends State<DashboardPage> {
             _clubEscudo = clubResponse?['escudo'] as String?;
           });
         }
-      } catch (e) {
-        debugPrint('Error loading equipo data: $e');
       }
+    } catch (e) {
+      debugPrint('Error loading data: $e');
     }
   }
 
@@ -94,10 +112,6 @@ class _DashboardPageState extends State<DashboardPage> {
             onItemTap: (item) {
               setState(() => _selectedNavItem = item);
             },
-            onLogout: () => _handleLogout(context),
-            userName: user?.nombreCompleto ?? 'Usuario',
-            userEmail: user?.email ?? '',
-            userAvatarUrl: user?.photourl,
             userRole: role,
           ),
           // Main content
@@ -130,7 +144,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case UserRole.superAdmin:
         return 'Panel de Administración';
       case UserRole.club:
-        return 'Panel del Club';
+        return _clubName ?? 'Panel del Club';
       case UserRole.coordinador:
         return 'Panel de Coordinación';
       case UserRole.entrenador:
@@ -148,7 +162,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   String? _getHeaderEscudo(UserRole? role) {
-    if (role == UserRole.entrenador) {
+    if (role == UserRole.club || role == UserRole.entrenador) {
       return _clubEscudo;
     }
     return null;
@@ -164,12 +178,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
     // Si es players, mostrar contenido de jugadores
     if (_selectedNavItem == 'players') {
-      return PlayersContent(user: user);
+      return PlayersContent(user: user, userRole: role ?? UserRole.entrenador);
+    }
+
+    // Si es teams, mostrar contenido de equipos
+    if (_selectedNavItem == 'teams') {
+      return TeamsContent(user: user);
     }
 
     // Si es training, mostrar contenido de entrenamientos
     if (_selectedNavItem == 'training') {
-      return TrainingsContent(user: user);
+      return TrainingsContent(user: user, userRole: role ?? UserRole.entrenador);
     }
 
     // Si es matches, mostrar contenido de partidos
@@ -180,6 +199,11 @@ class _DashboardPageState extends State<DashboardPage> {
     // Si es results, mostrar contenido de resultados
     if (_selectedNavItem == 'results') {
       return ResultsContent(user: user);
+    }
+
+    // Si es scouting, mostrar página de scouting
+    if (_selectedNavItem == 'scouting') {
+      return const ScoutingPage();
     }
 
     // Si no está en dashboard, mostrar placeholder
@@ -288,31 +312,4 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  void _handleLogout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Cerrar Sesión'),
-        content: const Text('¿Estás seguro de que quieres cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context.read<AuthBloc>().add(const AuthLogoutRequested());
-              context.go('/');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Cerrar Sesión'),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -8,15 +8,17 @@ class TrainingsTable extends StatelessWidget {
   const TrainingsTable({
     super.key,
     required this.trainings,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
     required this.onAttendance,
+    this.showTeamColumn = false,
   });
 
   final List<Map<String, dynamic>> trainings;
-  final void Function(Map<String, dynamic>) onEdit;
-  final void Function(Map<String, dynamic>) onDelete;
+  final void Function(Map<String, dynamic>)? onEdit;
+  final void Function(Map<String, dynamic>)? onDelete;
   final void Function(Map<String, dynamic>) onAttendance;
+  final bool showTeamColumn;
 
   @override
   Widget build(BuildContext context) {
@@ -196,29 +198,31 @@ class TrainingsTable extends StatelessWidget {
           ),
         ),
         // Editar
-        Tooltip(
-          message: 'Editar',
-          child: IconButton(
-            onPressed: () => onEdit(training),
-            icon: const Icon(Icons.edit_outlined),
-            iconSize: 18,
-            color: AppColors.gray500,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
+        if (onEdit != null)
+          Tooltip(
+            message: 'Editar',
+            child: IconButton(
+              onPressed: () => onEdit!(training),
+              icon: const Icon(Icons.edit_outlined),
+              iconSize: 18,
+              color: AppColors.gray500,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
           ),
-        ),
         // Eliminar
-        Tooltip(
-          message: 'Eliminar',
-          child: IconButton(
-            onPressed: () => onDelete(training),
-            icon: const Icon(Icons.delete_outline),
-            iconSize: 18,
-            color: AppColors.error,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
+        if (onDelete != null)
+          Tooltip(
+            message: 'Eliminar',
+            child: IconButton(
+              onPressed: () => onDelete!(training),
+              icon: const Icon(Icons.delete_outline),
+              iconSize: 18,
+              color: AppColors.error,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
           ),
-        ),
       ],
     );
   }

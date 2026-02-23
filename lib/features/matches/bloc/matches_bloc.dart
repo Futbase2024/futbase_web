@@ -79,7 +79,9 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
             obsconvocatoria,
             sistema,
             titulares,
-            clubequipo
+            clubequipo,
+            camiseta,
+            camisetapor
           ''')
           .eq('idequipo', event.idequipo)
           .eq('idtemporada', event.idTemporada)
@@ -166,7 +168,9 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
             obsconvocatoria,
             sistema,
             titulares,
-            clubequipo
+            clubequipo,
+            camiseta,
+            camisetapor
           ''')
           .eq('idequipo', event.idequipo)
           .eq('idtemporada', event.idTemporada)

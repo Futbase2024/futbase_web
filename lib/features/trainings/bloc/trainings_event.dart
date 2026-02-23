@@ -176,3 +176,57 @@ class AttendanceSaveRequested extends TrainingsEvent {
   @override
   List<Object?> get props => [identrenamiento, attendance, selectedMotive, observations];
 }
+
+/// Cargar entrenamientos de todos los equipos de un club (para Club/Coordinador)
+class TrainingsLoadByClubRequested extends TrainingsEvent {
+  final int idclub;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  const TrainingsLoadByClubRequested({
+    required this.idclub,
+    this.startDate,
+    this.endDate,
+  });
+
+  @override
+  List<Object?> get props => [idclub, startDate, endDate];
+}
+
+/// Cargar estadísticas de asistencia
+class AttendanceStatsRequested extends TrainingsEvent {
+  final int idclub;
+  final int? idequipo;
+
+  const AttendanceStatsRequested({
+    required this.idclub,
+    this.idequipo,
+  });
+
+  @override
+  List<Object?> get props => [idclub, idequipo];
+}
+
+/// Cambiar vista de calendario
+class CalendarViewChanged extends TrainingsEvent {
+  final String viewMode; // 'list', 'month', 'week'
+
+  const CalendarViewChanged({required this.viewMode});
+
+  @override
+  List<Object?> get props => [viewMode];
+}
+
+/// Navegar entre semanas
+class WeekNavigationRequested extends TrainingsEvent {
+  final DateTime focusedWeek;
+  final bool goToNext;
+
+  const WeekNavigationRequested({
+    required this.focusedWeek,
+    required this.goToNext,
+  });
+
+  @override
+  List<Object?> get props => [focusedWeek, goToNext];
+}

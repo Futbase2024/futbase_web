@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -84,65 +85,167 @@ class _TrainingFormDialogState extends State<TrainingFormDialog> {
     return null;
   }
 
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(
+  void _selectDate() {
+    showCupertinoModalPopup<void>(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      locale: const Locale('es', 'ES'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.gray900,
+      builder: (context) => Container(
+        height: 300,
+        padding: const EdgeInsets.only(top: 6),
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          children: [
+            // Header con botones
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.gray50,
+                border: Border(bottom: BorderSide(color: AppColors.gray200)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Hecho',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          child: child!,
-        );
-      },
+            // DatePicker
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: _selectedDate,
+                minimumDate: DateTime(2020),
+                maximumDate: DateTime(2030),
+                onDateTimeChanged: (date) {
+                  _selectedDate = date;
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
   }
 
-  Future<void> _selectTime(bool isStart) async {
+  void _selectTime(bool isStart) {
     final initial = isStart
         ? (_horaInicio ?? const TimeOfDay(hour: 18, minute: 0))
         : (_horaFin ?? const TimeOfDay(hour: 19, minute: 30));
 
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.gray900,
-            ),
-          ),
-          child: child!,
-        );
-      },
+    DateTime tempDateTime = DateTime(
+      2024,
+      1,
+      1,
+      initial.hour,
+      initial.minute,
     );
 
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _horaInicio = picked;
-        } else {
-          _horaFin = picked;
-        }
-      });
-    }
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (context) => Container(
+        height: 300,
+        padding: const EdgeInsets.only(top: 6),
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          children: [
+            // Header con botones
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.gray50,
+                border: Border(bottom: BorderSide(color: AppColors.gray200)),
+              ),
+              child: Row(
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancelar'),
+                  ),
+                  Expanded(
+                    child: Text(
+                      isStart ? 'Hora de inicio' : 'Hora de fin',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.gray700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      setState(() {
+                        if (isStart) {
+                          _horaInicio = TimeOfDay(
+                            hour: tempDateTime.hour,
+                            minute: tempDateTime.minute,
+                          );
+                        } else {
+                          _horaFin = TimeOfDay(
+                            hour: tempDateTime.hour,
+                            minute: tempDateTime.minute,
+                          );
+                        }
+                      });
+                    },
+                    child: Text(
+                      'Hecho',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // TimePicker 24H
+            Expanded(
+              child: MediaQuery(
+                data: const MediaQueryData(alwaysUse24HourFormat: true),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: DateTime(2024, 1, 1, initial.hour, initial.minute),
+                  onDateTimeChanged: (dateTime) {
+                    tempDateTime = dateTime;
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _save() {

@@ -12,6 +12,7 @@ import '../widgets/players_empty_state.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/config/app_config_cubit.dart';
 import '../../../../../shared/widgets/shared_widgets.dart';
 
 /// Página de gestión de jugadores
@@ -52,8 +53,13 @@ class _PlayersPageState extends State<PlayersPage> {
 
   void _loadPlayers() {
     final idequipo = widget.user.idequipo;
+    // Obtener la temporada activa del AppConfigCubit global
+    final activeSeasonId = context.read<AppConfigCubit>().activeSeasonId;
     if (idequipo > 0) {
-      _playersBloc.add(PlayersLoadRequested(idequipo: idequipo));
+      _playersBloc.add(PlayersLoadRequested(
+        idequipo: idequipo,
+        activeSeasonId: activeSeasonId,
+      ));
     }
   }
 

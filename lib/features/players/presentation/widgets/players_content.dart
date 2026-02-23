@@ -9,9 +9,12 @@ import 'players_grid.dart';
 import 'players_search_bar.dart';
 import 'players_filter_chips.dart';
 import 'players_empty_state.dart';
+import 'players_filter_dialog.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/constants/user_roles.dart';
+import '../../../../core/config/app_config_cubit.dart';
 import '../../../dashboard/presentation/widgets/dashboard_sidebar.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 
@@ -23,9 +26,11 @@ class PlayersContent extends StatefulWidget {
   const PlayersContent({
     super.key,
     required this.user,
+    required this.userRole,
   });
 
   final UsuariosEntity user;
+  final UserRole userRole;
 
   @override
   State<PlayersContent> createState() => _PlayersContentState();
@@ -59,9 +64,48 @@ class _PlayersContentState extends State<PlayersContent> {
   }
 
   void _loadPlayers() {
-    final idequipo = widget.user.idequipo;
-    if (idequipo > 0) {
-      _playersBloc.add(PlayersLoadRequested(idequipo: idequipo));
+    final user = widget.user;
+    final role = widget.userRole;
+    final idclub = user.idclub;
+    final idequipo = user.idequipo;
+
+    // Obtener la temporada activa del AppConfigCubit global
+    final appConfigCubit = context.read<AppConfigCubit>();
+    final activeSeasonId = appConfigCubit.activeSeasonId;
+
+    debugPrint('⏱️ [TIMING] 📦 PlayersContent._loadPlayers: role=$role, idclub=$idclub, idequipo=$idequipo, temporada=$activeSeasonId');
+
+    // Club y Coordinador ven todos los jugadores del club
+    if (role == UserRole.club || role == UserRole.coordinador) {
+      if (idclub > 0) {
+        _playersBloc.add(PlayersLoadRequested(
+          idclub: idclub,
+          loadByClub: true,
+          activeSeasonId: activeSeasonId,
+        ));
+      } else {
+        debugPrint('⏱️ [TIMING] ❌ PlayersContent: Usuario sin club asignado (idclub=$idclub)');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _playersBloc.add(const PlayersNoTeamEvent());
+          }
+        });
+      }
+    } else {
+      // Entrenador ve solo los jugadores de su equipo
+      if (idequipo > 0) {
+        _playersBloc.add(PlayersLoadRequested(
+          idequipo: idequipo,
+          activeSeasonId: activeSeasonId,
+        ));
+      } else {
+        debugPrint('⏱️ [TIMING] ❌ PlayersContent: Usuario sin equipo asignado (idequipo=$idequipo)');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _playersBloc.add(const PlayersNoTeamEvent());
+          }
+        });
+      }
     }
   }
 
@@ -104,15 +148,21 @@ class _PlayersContentState extends State<PlayersContent> {
               :final players,
               :final filteredPlayers,
               :final positions,
+              :final teams,
               :final searchQuery,
               :final filterByPosition,
+              :final filterByTeam,
+              :final showInactive,
             ) =>
               _buildLoadedContent(
                 players: players,
                 filteredPlayers: filteredPlayers,
                 positions: positions,
+                teams: teams,
                 searchQuery: searchQuery,
                 filterByPosition: filterByPosition,
+                filterByTeam: filterByTeam,
+                showInactive: showInactive,
               ),
             PlayersError(:final message) => _buildErrorWidget(message),
             _ => const CELoading.inline(),
@@ -126,16 +176,30 @@ class _PlayersContentState extends State<PlayersContent> {
     required List<Map<String, dynamic>> players,
     required List<Map<String, dynamic>> filteredPlayers,
     required Map<int, String> positions,
+    required Map<int, String> teams,
     required String searchQuery,
     required int? filterByPosition,
+    required int? filterByTeam,
+    required bool showInactive,
   }) {
-    final hasActiveFilters = searchQuery.isNotEmpty || filterByPosition != null;
+    final isClubOrCoordinador = widget.userRole == UserRole.club ||
+        widget.userRole == UserRole.coordinador;
+    final hasActiveFilters =
+        searchQuery.isNotEmpty || filterByPosition != null || filterByTeam != null;
 
     return CustomScrollView(
       slivers: [
         // Header fijo
         SliverToBoxAdapter(
-          child: _buildHeader(players.length),
+          child: _buildHeader(
+            players.length,
+            teams: teams,
+            positions: positions,
+            filterByTeam: filterByTeam,
+            filterByPosition: filterByPosition,
+            isClubOrCoordinador: isClubOrCoordinador,
+            showInactive: showInactive,
+          ),
         ),
 
         // Barra de búsqueda
@@ -150,8 +214,8 @@ class _PlayersContentState extends State<PlayersContent> {
           ),
         ),
 
-        // Filtros por posición
-        if (positions.isNotEmpty)
+        // Filtros: chips de posición solo para Entrenador
+        if (!isClubOrCoordinador && positions.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -247,7 +311,17 @@ class _PlayersContentState extends State<PlayersContent> {
     return positions[id] ?? '';
   }
 
-  Widget _buildHeader(int totalPlayers) {
+  Widget _buildHeader(
+    int totalPlayers, {
+    required Map<int, String> teams,
+    required Map<int, String> positions,
+    required int? filterByTeam,
+    required int? filterByPosition,
+    required bool isClubOrCoordinador,
+    required bool showInactive,
+  }) {
+    final hasActiveFilters = filterByTeam != null || filterByPosition != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       decoration: BoxDecoration(
@@ -299,6 +373,22 @@ class _PlayersContentState extends State<PlayersContent> {
           ),
           AppSpacing.hSpaceMd,
 
+          // Botón Filtros (solo para Club/Coordinador)
+          if (isClubOrCoordinador && teams.isNotEmpty) ...[
+            _buildFilterButton(
+              teams: teams,
+              positions: positions,
+              filterByTeam: filterByTeam,
+              filterByPosition: filterByPosition,
+              hasActiveFilters: hasActiveFilters,
+            ),
+            AppSpacing.hSpaceSm,
+          ],
+
+          // Toggle Activos/Inactivos
+          _buildActiveInactiveToggle(showInactive),
+          AppSpacing.hSpaceSm,
+
           // Botón Añadir
           ElevatedButton.icon(
             onPressed: () {
@@ -317,6 +407,97 @@ class _PlayersContentState extends State<PlayersContent> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterButton({
+    required Map<int, String> teams,
+    required Map<int, String> positions,
+    required int? filterByTeam,
+    required int? filterByPosition,
+    required bool hasActiveFilters,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: () {
+        showPlayersFilterDialog(
+          context: context,
+          teams: teams,
+          positions: positions,
+          selectedTeam: filterByTeam,
+          selectedPosition: filterByPosition,
+          onApply: (team, position) {
+            _playersBloc.add(PlayersFilterByTeam(idequipo: team));
+            _playersBloc.add(PlayersFilterByPosition(idposicion: position));
+          },
+          onClear: _clearFilters,
+          showTeamFilter: teams.isNotEmpty,
+        );
+      },
+      icon: Icon(
+        hasActiveFilters ? Icons.filter_list : Icons.filter_list_outlined,
+        size: 18,
+      ),
+      label: Text(hasActiveFilters ? 'Filtros activos' : 'Filtros'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: hasActiveFilters ? AppColors.primary : AppColors.gray700,
+        side: BorderSide(
+          color: hasActiveFilters ? AppColors.primary : AppColors.gray300,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  /// Botón toggle para mostrar activos/inactivos
+  Widget _buildActiveInactiveToggle(bool showInactive) {
+    return Tooltip(
+      message: showInactive ? 'Mostrando todos' : 'Solo activos',
+      child: InkWell(
+        onTap: () {
+          // Obtener la temporada activa del AppConfigCubit global
+          final activeSeasonId = context.read<AppConfigCubit>().activeSeasonId;
+          _playersBloc.add(PlayersToggleInactive(
+            showInactive: !showInactive,
+            activeSeasonId: activeSeasonId,
+          ));
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: showInactive
+                ? AppColors.warning.withValues(alpha: 0.1)
+                : AppColors.success.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: showInactive
+                  ? AppColors.warning.withValues(alpha: 0.3)
+                  : AppColors.success.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                showInactive ? Icons.visibility : Icons.visibility_outlined,
+                size: 18,
+                color: showInactive ? AppColors.warning : AppColors.success,
+              ),
+              AppSpacing.hSpaceXs,
+              Text(
+                showInactive ? 'Todos' : 'Activos',
+                style: AppTypography.labelSmall.copyWith(
+                  color: showInactive ? AppColors.warning : AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

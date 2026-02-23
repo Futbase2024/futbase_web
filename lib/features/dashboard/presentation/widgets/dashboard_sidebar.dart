@@ -18,10 +18,6 @@ class DashboardSidebar extends StatelessWidget {
     super.key,
     this.selectedItem = 'dashboard',
     this.onItemTap,
-    this.onLogout,
-    this.userName = 'Admin FutBase',
-    this.userEmail = 'admin@futbase.com',
-    this.userAvatarUrl,
     this.userRole,
     this.isCollapsed = false,
     this.onToggleCollapse,
@@ -29,10 +25,6 @@ class DashboardSidebar extends StatelessWidget {
 
   final String selectedItem;
   final void Function(String item)? onItemTap;
-  final VoidCallback? onLogout;
-  final String userName;
-  final String userEmail;
-  final String? userAvatarUrl;
   final UserRole? userRole;
   final bool isCollapsed;
   final VoidCallback? onToggleCollapse;
@@ -65,8 +57,6 @@ class DashboardSidebar extends StatelessWidget {
           Expanded(
             child: _buildNavigation(context),
           ),
-          // Bottom section - User profile
-          _buildBottomSection(context),
         ],
       ),
     );
@@ -223,14 +213,11 @@ class DashboardSidebar extends StatelessWidget {
     final role = userRole ?? UserRole.entrenador;
 
     return _allNavItems.where((item) {
-      // Settings is always visible
-      if (item.id == 'settings') return true;
-
       switch (item.id) {
         case 'dashboard':
           return true; // Dashboard visible for all
         case 'teams':
-          return role.canManageTeams && role != UserRole.entrenador;
+          return role == UserRole.club || role == UserRole.coordinador;
         case 'players':
           return role.canManageTeams;
         case 'training':
@@ -241,6 +228,8 @@ class DashboardSidebar extends StatelessWidget {
           return role.canViewResults;
         case 'reports':
           return role.canViewReports;
+        case 'scouting':
+          return role.canViewReports; // Scouting visible para quienes pueden ver informes
         case 'season':
           return role.canChangeSeason;
         case 'fees':
@@ -258,186 +247,22 @@ class DashboardSidebar extends StatelessWidget {
   Widget _buildNavigation(BuildContext context) {
     final navItems = _getNavItemsForRole();
 
-    // Separar items principales de configuración
-    final mainItems = navItems.where((item) => item.id != 'settings').toList();
-    final settingsItem = navItems.where((item) => item.id == 'settings').firstOrNull;
-
     return Padding(
       padding: EdgeInsets.only(left: isCollapsed ? 8 : 16),
-      child: Column(
-        children: [
-          // Main navigation items
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: mainItems.map((item) => _NavItem(
-                  item: item,
-                  isSelected: selectedItem == item.id,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTap?.call(item.id),
-                )).toList(),
-              ),
-            ),
-          ),
-          // Separator and settings
-          if (settingsItem != null)
-            Container(
-              margin: EdgeInsets.only(right: isCollapsed ? 8 : 16, top: 16),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.gray50),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  _NavItem(
-                    item: settingsItem,
-                    isSelected: selectedItem == settingsItem.id,
-                    isCollapsed: isCollapsed,
-                    onTap: () => onItemTap?.call(settingsItem.id),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          children: navItems.map((item) => _NavItem(
+            item: item,
+            isSelected: selectedItem == item.id,
+            isCollapsed: isCollapsed,
+            onTap: () => onItemTap?.call(item.id),
+          )).toList(),
+        ),
       ),
     );
   }
 
-  Widget _buildBottomSection(BuildContext context) {
-    if (isCollapsed) {
-      // Versión colapsada: solo avatar con tooltip
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB).withValues(alpha: 0.3),
-          border: Border(
-            top: BorderSide(color: AppColors.gray50),
-          ),
-        ),
-        child: Center(
-          child: Tooltip(
-            message: '$userName\n$userEmail',
-            child: InkWell(
-              onTap: onLogout,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  border: Border.all(color: AppColors.white, width: 2),
-                  image: userAvatarUrl != null
-                      ? DecorationImage(
-                          image: NetworkImage(userAvatarUrl!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: userAvatarUrl == null
-                    ? Center(
-                        child: Text(
-                          userName.isNotEmpty ? userName[0].toUpperCase() : 'A',
-                          style: AppTypography.labelMedium.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Versión expandida
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB).withValues(alpha: 0.3),
-        border: Border(
-          top: BorderSide(color: AppColors.gray50),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: 0.1),
-              border: Border.all(color: AppColors.white, width: 2),
-              image: userAvatarUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(userAvatarUrl!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: userAvatarUrl == null
-                ? Center(
-                    child: Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : 'A',
-                      style: AppTypography.labelMedium.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          // User info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userName,
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  userEmail,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.gray400,
-                    fontSize: 10,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          // Logout button
-          InkWell(
-            onTap: onLogout,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Icon(
-                Icons.logout,
-                color: AppColors.primary.withValues(alpha: 0.4),
-                size: 20,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// All possible navigation items
+  /// All possible navigation items (sin Configuración - ahora en AppBar)
   static const List<_NavItemData> _allNavItems = [
     _NavItemData(id: 'dashboard', icon: Icons.home, label: 'Inicio'),
     _NavItemData(id: 'teams', icon: Icons.groups, label: 'Equipos'),
@@ -446,11 +271,11 @@ class DashboardSidebar extends StatelessWidget {
     _NavItemData(id: 'matches', icon: Icons.sports_soccer, label: 'Partidos'),
     _NavItemData(id: 'results', icon: Icons.emoji_events, label: 'Resultados'),
     _NavItemData(id: 'reports', icon: Icons.assessment, label: 'Informes'),
+    _NavItemData(id: 'scouting', icon: Icons.analytics, label: 'Scouting'),
     _NavItemData(id: 'season', icon: Icons.calendar_today, label: 'Cambio de Temporada'),
     _NavItemData(id: 'fees', icon: Icons.payments, label: 'Cuotas'),
     _NavItemData(id: 'clothing', icon: Icons.checkroom, label: 'Ropa'),
     _NavItemData(id: 'accounting', icon: Icons.account_balance, label: 'Contabilidad'),
-    _NavItemData(id: 'settings', icon: Icons.settings, label: 'Configuración'),
   ];
 }
 

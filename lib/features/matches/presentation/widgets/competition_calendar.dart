@@ -219,6 +219,7 @@ class _CalendarRow extends StatelessWidget {
     final idjornada = match['idjornada'];
     final jcorta = match['jcorta']?.toString();
     final campo = match['campo']?.toString();
+    final finalizado = match['finalizado'] == 1 || match['finalizado'] == true;
 
     // Determinar tipo de competición y texto a mostrar
     final esLiga = idjornada != null;
@@ -344,17 +345,18 @@ class _CalendarRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                Tooltip(
-                  message: 'Editar',
-                  child: InkWell(
-                    onTap: onEdit,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.edit_outlined, size: 18, color: AppColors.gray400),
+                if (!finalizado)
+                  Tooltip(
+                    message: 'Editar',
+                    child: InkWell(
+                      onTap: onEdit,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.edit_outlined, size: 18, color: AppColors.gray400),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

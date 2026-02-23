@@ -8,14 +8,25 @@ abstract class PlayersEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Evento para cargar jugadores de un equipo
+/// Evento para cargar jugadores
+/// Si se proporciona idclub y loadByClub es true, carga todos los jugadores del club
+/// Si se proporciona idequipo, carga los jugadores de ese equipo
+/// activeSeasonId es obligatorio para filtrar por temporada activa
 class PlayersLoadRequested extends PlayersEvent {
-  final int idequipo;
+  final int? idclub;
+  final int? idequipo;
+  final bool loadByClub;
+  final int activeSeasonId;
 
-  const PlayersLoadRequested({required this.idequipo});
+  const PlayersLoadRequested({
+    this.idclub,
+    this.idequipo,
+    this.loadByClub = false,
+    required this.activeSeasonId,
+  });
 
   @override
-  List<Object?> get props => [idequipo];
+  List<Object?> get props => [idclub, idequipo, loadByClub, activeSeasonId];
 }
 
 /// Evento para refrescar la lista de jugadores
@@ -52,6 +63,16 @@ class PlayersFilterByPosition extends PlayersEvent {
   List<Object?> get props => [idposicion];
 }
 
+/// Evento para filtrar jugadores por equipo
+class PlayersFilterByTeam extends PlayersEvent {
+  final int? idequipo;
+
+  const PlayersFilterByTeam({this.idequipo});
+
+  @override
+  List<Object?> get props => [idequipo];
+}
+
 /// Evento para limpiar filtros
 class PlayersClearFilters extends PlayersEvent {
   const PlayersClearFilters();
@@ -65,4 +86,23 @@ class PlayerSelected extends PlayersEvent {
 
   @override
   List<Object?> get props => [player];
+}
+
+/// Evento cuando el usuario no tiene equipo asignado
+class PlayersNoTeamEvent extends PlayersEvent {
+  const PlayersNoTeamEvent();
+}
+
+/// Evento para alternar mostrar jugadores inactivos
+class PlayersToggleInactive extends PlayersEvent {
+  final bool showInactive;
+  final int activeSeasonId;
+
+  const PlayersToggleInactive({
+    required this.showInactive,
+    required this.activeSeasonId,
+  });
+
+  @override
+  List<Object?> get props => [showInactive, activeSeasonId];
 }

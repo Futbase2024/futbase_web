@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/config/app_config_cubit.dart';
 import '../../../auth/bloc/auth_bloc.dart';
 import '../../../auth/bloc/auth_event.dart';
 import '../../../auth/bloc/auth_state.dart';
@@ -30,6 +31,13 @@ class DashboardHeader extends StatelessWidget {
   final VoidCallback? onNotificationsTap;
   final VoidCallback? onSettingsTap;
 
+  /// Verifica si la URL de imagen es válida (no null, no vacía, no es "NULL")
+  static bool _isValidImageUrl(String? url) {
+    if (url == null || url.isEmpty) return false;
+    final lowerUrl = url.toLowerCase().trim();
+    return lowerUrl != 'null' && lowerUrl.startsWith('http');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -43,8 +51,8 @@ class DashboardHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Escudo (si existe)
-          if (escudoUrl != null && escudoUrl!.isNotEmpty) ...[
+          // Escudo (si existe y no es el string "NULL")
+          if (_isValidImageUrl(escudoUrl)) ...[
             SizedBox(
               width: 44,
               height: 44,
@@ -59,27 +67,52 @@ class DashboardHeader extends StatelessWidget {
             ),
             const SizedBox(width: 14),
           ],
-          // Title y subtitle
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTypography.h6.copyWith(
-                  color: AppColors.gray800,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              if (subtitle != null)
-                Text(
-                  subtitle!,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.gray500,
+          // Title y subtitle con temporada
+          BlocBuilder<AppConfigCubit, AppConfigState>(
+            builder: (context, configState) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTypography.h6.copyWith(
+                          color: AppColors.gray800,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      // Mostrar temporada
+                      Container(
+                        margin: const EdgeInsets.only(left: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Temporada ${configState.activeSeasonName}',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-            ],
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.gray500,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           const Spacer(),
           // Search
@@ -176,6 +209,7 @@ class DashboardHeader extends StatelessWidget {
         final user = state.user;
         final userName = user?.nombreCompleto ?? 'Usuario';
         final userEmail = user?.email ?? '';
+        final userAvatarUrl = user?.photourl;
 
         return PopupMenuButton<String>(
           offset: const Offset(0, 40),
@@ -252,16 +286,9 @@ class DashboardHeader extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  child: Text(
-                    userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                _UserAvatar(
+                  userName: userName,
+                  userAvatarUrl: userAvatarUrl,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -340,6 +367,57 @@ class _ActionButton extends StatelessWidget {
             color: AppColors.gray400,
             size: 24,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget de avatar de usuario que maneja errores de carga de imagen
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({
+    required this.userName,
+    this.userAvatarUrl,
+  });
+
+  final String userName;
+  final String? userAvatarUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    // Si no hay URL válida, mostrar iniciales
+    if (userAvatarUrl == null || userAvatarUrl!.isEmpty) {
+      return _buildInitialsAvatar();
+    }
+
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+      child: ClipOval(
+        child: Image.network(
+          userAvatarUrl!,
+          width: 28,
+          height: 28,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildInitialsAvatar(),
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _buildInitialsAvatar();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInitialsAvatar() {
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+      child: Text(
+        userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+        style: AppTypography.bodySmall.copyWith(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
