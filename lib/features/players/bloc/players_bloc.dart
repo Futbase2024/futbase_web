@@ -44,27 +44,29 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
       final activeSeasonId = event.activeSeasonId;
       debugPrint('⏱️ [TIMING] 🗓️ Temporada activa: $activeSeasonId');
 
-      // Cargar jugadores según el tipo de filtro
+      // Cargar jugadores desde la vista vjugadores (une tjugadores + testadisticasjugador)
       // Por defecto solo activos (activo = 1) y de la temporada activa
       List<dynamic> jugadoresResponse;
       if (event.loadByClub && event.idclub != null) {
         // Cargar todos los jugadores del club (solo activos y de la temporada activa)
         jugadoresResponse = await _supabase
-            .from('tjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo')
+            .from('vjugadores')
+            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
             .eq('idclub', event.idclub!)
             .eq('activo', 1)
             .eq('idtemporada', activeSeasonId)
+            .eq('visible', 1)
             .order('nombre')
             .order('apellidos');
       } else if (event.idequipo != null) {
         // Cargar jugadores de un equipo específico (solo activos y de la temporada activa)
         jugadoresResponse = await _supabase
-            .from('tjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo')
+            .from('vjugadores')
+            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
             .eq('idequipo', event.idequipo!)
             .eq('activo', 1)
             .eq('idtemporada', activeSeasonId)
+            .eq('visible', 1)
             .order('nombre')
             .order('apellidos');
       } else {
@@ -331,32 +333,23 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
 
     // Recargar datos con el nuevo filtro
     final showInactive = event.showInactive;
+    final activeSeasonId = event.activeSeasonId;
 
     try {
-      // Obtener la temporada activa
-      final seasonData = await _supabase
-          .from('ttemporadas')
-          .select('idtemporada')
-          .order('idtemporada', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      final activeSeasonId = seasonData?['idtemporada'] as int? ?? 6;
-
       List<dynamic> jugadoresResponse;
 
       // Determinar el filtro basado en el estado anterior
-      // Por ahora usamos el primer jugador para saber si es por club o equipo
       final firstPlayer = currentState.players.isNotEmpty ? currentState.players.first : null;
 
       if (currentState.teams.isNotEmpty && firstPlayer != null) {
         // Era carga por club - necesitamos el idclub
-        // Recargar todos sin filtro de activo para poder filtrar, pero con temporada
+        // Recargar desde vjugadores sin filtro de activo, pero con temporada
         final allPlayers = await _supabase
-            .from('tjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo')
+            .from('vjugadores')
+            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
             .eq('idclub', currentState.players.first['idclub'] ?? 0)
             .eq('idtemporada', activeSeasonId)
+            .eq('visible', 1)
             .order('nombre')
             .order('apellidos');
         jugadoresResponse = allPlayers;
@@ -364,10 +357,11 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
         // Era carga por equipo
         final idequipo = currentState.players.first['idequipo'];
         final allPlayers = await _supabase
-            .from('tjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo')
+            .from('vjugadores')
+            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
             .eq('idequipo', idequipo)
             .eq('idtemporada', activeSeasonId)
+            .eq('visible', 1)
             .order('nombre')
             .order('apellidos');
         jugadoresResponse = allPlayers;
@@ -384,8 +378,10 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
       final deduplicatedList = _deduplicatePlayers(allPlayersList);
 
       // Filtrar por activo según el toggle
+      // showInactive=false -> Solo activos (activo=1)
+      // showInactive=true -> Solo inactivos (activo=0)
       var filteredByActive = showInactive
-          ? deduplicatedList
+          ? deduplicatedList.where((p) => p['activo'] == 0).toList()
           : deduplicatedList.where((p) => p['activo'] == 1).toList();
 
       // Aplicar filtros existentes

@@ -7,6 +7,8 @@ import '../../bloc/scouting_state.dart';
 import '../widgets/scouting_filter_dialog.dart';
 import '../widgets/scouting_player_card.dart';
 import '../widgets/scouting_comparison_bar.dart';
+import '../../../auth/bloc/auth_bloc.dart';
+import '../../../../core/constants/user_roles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -18,8 +20,16 @@ class ScoutingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Obtener datos del usuario autenticado
+    final authState = context.watch<AuthBloc>().state;
+    final userClubId = authState.user?.idclub;
+    final isSuperAdmin = authState.role == UserRole.superAdmin;
+
     return BlocProvider(
-      create: (context) => ScoutingBloc()..add(const ScoutingInitializeRequested()),
+      create: (context) => ScoutingBloc()..add(ScoutingInitializeRequested(
+        userClubId: userClubId,
+        isSuperAdmin: isSuperAdmin,
+      )),
       child: const ScoutingView(),
     );
   }
@@ -252,6 +262,13 @@ class _ScoutingViewState extends State<ScoutingView> {
   }
 
   Widget _buildPlayersGrid(BuildContext context, ScoutingLoaded state) {
+    // Mostrar loading mientras se cargan los jugadores
+    if (state.isLoadingPlayers) {
+      return const Center(
+        child: CELoading.inline(message: 'Cargando jugadores...'),
+      );
+    }
+
     if (state.filteredPlayers.isEmpty) {
       return _buildEmptyState();
     }
@@ -263,7 +280,7 @@ class _ScoutingViewState extends State<ScoutingView> {
           maxCrossAxisExtent: 280,
           mainAxisSpacing: AppSpacing.md,
           crossAxisSpacing: AppSpacing.md,
-          childAspectRatio: 0.85,
+          childAspectRatio: 1.3,
         ),
         itemCount: state.filteredPlayers.length,
         itemBuilder: (context, index) {
@@ -273,6 +290,7 @@ class _ScoutingViewState extends State<ScoutingView> {
           return ScoutingPlayerCard(
             player: player,
             isComparing: isComparing,
+            showClub: state.isSuperAdmin,
           );
         },
       ),

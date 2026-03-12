@@ -93,6 +93,9 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
         posiciones: posicionesMap,
         categorias: categoriasMap,
         pies: piesMap,
+        userClubId: event.userClubId,
+        isSuperAdmin: event.isSuperAdmin,
+        isLoadingPlayers: true,
       ));
 
       // Cargar jugadores automáticamente
@@ -131,6 +134,11 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
             minutos, valoracion, capitan
           ''');
 
+      // Si NO es superAdmin, filtrar por el club del usuario
+      if (!currentState.isSuperAdmin && currentState.userClubId != null) {
+        query = query.eq('idclub', currentState.userClubId!);
+      }
+
       // Aplicar filtro de temporada
       if (filters.idtemporada != null) {
         query = query.eq('idtemporada', filters.idtemporada!);
@@ -151,10 +159,10 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
         query = query.eq('idpiedominante', filters.idpiedominante!);
       }
 
-      // Ordenar por valoración descendente
+      // Ordenar por nombre y apellidos de A a Z (ascendente)
       final response = await query
-          .order('valoracion', ascending: false)
-          .order('nombre');
+          .order('nombre', ascending: true)
+          .order('apellidos', ascending: true);
       var players = (response as List<dynamic>).cast<Map<String, dynamic>>();
 
       // Filtrar por edad en memoria (más flexible que SQL)
@@ -178,6 +186,7 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
         filteredPlayers: players,
         totalCount: players.length,
         currentPage: 0,
+        isLoadingPlayers: false,
       ));
     } catch (e) {
       debugPrint('❌ ScoutingBloc._onLoadPlayers: $e');

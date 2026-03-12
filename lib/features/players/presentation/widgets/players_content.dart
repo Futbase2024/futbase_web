@@ -139,35 +139,44 @@ class _PlayersContentState extends State<PlayersContent> {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _playersBloc,
-      child: BlocBuilder<PlayersBloc, PlayersState>(
-        builder: (context, state) {
-          return switch (state) {
-            PlayersInitial() => const CELoading.inline(),
-            PlayersLoading() => const CELoading.inline(),
-            PlayersLoaded(
-              :final players,
-              :final filteredPlayers,
-              :final positions,
-              :final teams,
-              :final searchQuery,
-              :final filterByPosition,
-              :final filterByTeam,
-              :final showInactive,
-            ) =>
-              _buildLoadedContent(
-                players: players,
-                filteredPlayers: filteredPlayers,
-                positions: positions,
-                teams: teams,
-                searchQuery: searchQuery,
-                filterByPosition: filterByPosition,
-                filterByTeam: filterByTeam,
-                showInactive: showInactive,
-              ),
-            PlayersError(:final message) => _buildErrorWidget(message),
-            _ => const CELoading.inline(),
-          };
+      child: BlocListener<AppConfigCubit, AppConfigState>(
+        listenWhen: (previous, current) =>
+            previous.activeSeasonId != current.activeSeasonId,
+        listener: (context, configState) {
+          // Recargar jugadores cuando cambia la temporada
+          debugPrint('🗓️ [PLAYERS] Temporada cambiada a: ${configState.activeSeasonName}');
+          _loadPlayers();
         },
+        child: BlocBuilder<PlayersBloc, PlayersState>(
+          builder: (context, state) {
+            return switch (state) {
+              PlayersInitial() => const CELoading.inline(),
+              PlayersLoading() => const CELoading.inline(),
+              PlayersLoaded(
+                :final players,
+                :final filteredPlayers,
+                :final positions,
+                :final teams,
+                :final searchQuery,
+                :final filterByPosition,
+                :final filterByTeam,
+                :final showInactive,
+              ) =>
+                _buildLoadedContent(
+                  players: players,
+                  filteredPlayers: filteredPlayers,
+                  positions: positions,
+                  teams: teams,
+                  searchQuery: searchQuery,
+                  filterByPosition: filterByPosition,
+                  filterByTeam: filterByTeam,
+                  showInactive: showInactive,
+                ),
+              PlayersError(:final message) => _buildErrorWidget(message),
+              _ => const CELoading.inline(),
+            };
+          },
+        ),
       ),
     );
   }
@@ -455,7 +464,7 @@ class _PlayersContentState extends State<PlayersContent> {
   /// Botón toggle para mostrar activos/inactivos
   Widget _buildActiveInactiveToggle(bool showInactive) {
     return Tooltip(
-      message: showInactive ? 'Mostrando todos' : 'Solo activos',
+      message: showInactive ? 'Mostrando inactivos' : 'Mostrando activos',
       child: InkWell(
         onTap: () {
           // Obtener la temporada activa del AppConfigCubit global
@@ -470,28 +479,28 @@ class _PlayersContentState extends State<PlayersContent> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: showInactive
-                ? AppColors.warning.withValues(alpha: 0.1)
-                : AppColors.success.withValues(alpha: 0.1),
+                ? AppColors.error.withValues(alpha: 0.1)
+                : AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: showInactive
-                  ? AppColors.warning.withValues(alpha: 0.3)
-                  : AppColors.success.withValues(alpha: 0.3),
+                  ? AppColors.error.withValues(alpha: 0.3)
+                  : AppColors.primary.withValues(alpha: 0.3),
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                showInactive ? Icons.visibility : Icons.visibility_outlined,
+                showInactive ? Icons.person_off_outlined : Icons.person_outline,
                 size: 18,
-                color: showInactive ? AppColors.warning : AppColors.success,
+                color: showInactive ? AppColors.error : AppColors.primary,
               ),
               AppSpacing.hSpaceXs,
               Text(
-                showInactive ? 'Todos' : 'Activos',
+                showInactive ? 'Inactivos' : 'Activos',
                 style: AppTypography.labelSmall.copyWith(
-                  color: showInactive ? AppColors.warning : AppColors.success,
+                  color: showInactive ? AppColors.error : AppColors.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),

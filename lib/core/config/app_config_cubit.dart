@@ -71,24 +71,13 @@ class AppConfigCubit extends Cubit<AppConfigState> {
     }
   }
 
-  /// Cambia la temporada activa
-  Future<void> setActiveSeason(int seasonId, String seasonName) async {
-    try {
-      await Supabase.instance.client
-          .from('tconfig')
-          .update({
-            'idtemporada': seasonId,
-            'temporada': seasonName,
-          })
-          .eq('id', 1);
-
-      emit(state.copyWith(
-        activeSeasonId: seasonId,
-        activeSeasonName: seasonName,
-      ));
-    } catch (e) {
-      emit(state.copyWith(error: e.toString()));
-    }
+  /// Cambia la temporada activa (solo en memoria, no persiste en BD)
+  /// La temporada en tconfig es solo para el admin y se usa al iniciar la app
+  void setActiveSeason(int seasonId, String seasonName) {
+    emit(state.copyWith(
+      activeSeasonId: seasonId,
+      activeSeasonName: seasonName,
+    ));
   }
 
   /// Obtiene el ID de la temporada activa

@@ -188,7 +188,7 @@ class _NextMatchCardState extends State<NextMatchCard> {
                 Expanded(
                   child: _TeamInfo(
                     name: local
-                        ? (widget.match['ncortoclub'] ?? widget.match['club'] ?? 'Mi Equipo')
+                        ? (widget.match['ncortoequipo'] ?? widget.match['equipo'] ?? 'Mi Equipo')
                         : rival,
                     isLocal: local,
                     isMyTeam: local,
@@ -206,7 +206,7 @@ class _NextMatchCardState extends State<NextMatchCard> {
                   child: _TeamInfo(
                     name: local
                         ? rival
-                        : (widget.match['ncortoclub'] ?? widget.match['club'] ?? 'Mi Equipo'),
+                        : (widget.match['ncortoequipo'] ?? widget.match['equipo'] ?? 'Mi Equipo'),
                     isLocal: !local,
                     isMyTeam: !local,
                     escudoUrl: local

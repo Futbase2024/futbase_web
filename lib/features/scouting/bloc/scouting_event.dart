@@ -10,7 +10,16 @@ abstract class ScoutingEvent extends Equatable {
 
 /// Evento para cargar datos iniciales (temporadas, posiciones, categorías)
 class ScoutingInitializeRequested extends ScoutingEvent {
-  const ScoutingInitializeRequested();
+  final int? userClubId;
+  final bool isSuperAdmin;
+
+  const ScoutingInitializeRequested({
+    this.userClubId,
+    this.isSuperAdmin = false,
+  });
+
+  @override
+  List<Object?> get props => [userClubId, isSuperAdmin];
 }
 
 /// Evento para cargar jugadores con los filtros actuales

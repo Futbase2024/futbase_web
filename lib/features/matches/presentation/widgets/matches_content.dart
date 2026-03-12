@@ -52,11 +52,24 @@ class _MatchesContentState extends State<MatchesContent> {
 
   void _loadMatches() {
     final idequipo = widget.user.idequipo;
+    final idclub = widget.user.idclub;
+
     if (idequipo > 0) {
+      // Usuario con equipo asignado - cargar partidos del equipo
       _matchesBloc.add(MatchesLoadRequested(
         idequipo: idequipo,
         idTemporada: widget.idTemporada,
       ));
+    } else if (idclub > 0) {
+      // Usuario sin equipo pero con club (club/coordinador) - cargar partidos del club
+      debugPrint('⚽ [MatchesContent] Cargando partidos del club (idclub=$idclub)');
+      _matchesBloc.add(MatchesLoadByClubRequested(
+        idclub: idclub,
+        idTemporada: widget.idTemporada,
+      ));
+    } else {
+      // Usuario sin club ni equipo - no hay nada que cargar
+      debugPrint('⚽ [MatchesContent] Usuario sin club ni equipo asignado');
     }
   }
 
@@ -177,6 +190,11 @@ class _MatchesContentState extends State<MatchesContent> {
 
   @override
   Widget build(BuildContext context) {
+    // Si el usuario no tiene ni equipo ni club asignado, mostrar mensaje informativo
+    if (widget.user.idequipo <= 0 && widget.user.idclub <= 0) {
+      return _buildNoTeamWidget();
+    }
+
     return BlocProvider.value(
       value: _matchesBloc,
       child: BlocBuilder<MatchesBloc, MatchesState>(
@@ -187,9 +205,52 @@ class _MatchesContentState extends State<MatchesContent> {
             MatchesLoaded() => _buildLoadedContent(state),
             MatchesError(:final message) => _buildErrorWidget(message),
             LineupState() => const CELoading.inline(),
+            MatchesNoTeam(:final message) => _buildNoTeamWidget(message: message),
             _ => const CELoading.inline(),
           };
         },
+      ),
+    );
+  }
+
+  /// Widget para usuarios sin club ni equipo asignado
+  Widget _buildNoTeamWidget({String? message}) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.sports_soccer_outlined,
+              size: 64,
+              color: AppColors.primary.withValues(alpha: 0.5),
+            ),
+          ),
+          AppSpacing.vSpaceLg,
+          Text(
+            'Gestión de Partidos',
+            style: AppTypography.h5.copyWith(
+              color: AppColors.gray900,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          AppSpacing.vSpaceSm,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Text(
+              message ?? 'No tienes un club o equipo asignado. Contacta con el administrador para obtener acceso.',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.gray500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }

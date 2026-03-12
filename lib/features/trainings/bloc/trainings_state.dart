@@ -27,6 +27,7 @@ class TrainingsLoaded extends TrainingsState {
   final DateTime? filterFromDate;
   final DateTime? filterToDate;
   final int? filterByType;
+  final int activeSeasonId; // Temporada activa
 
   // Campos nuevos para Club/Coordinador
   final List<Map<String, dynamic>> teams; // Equipos del club
@@ -48,6 +49,7 @@ class TrainingsLoaded extends TrainingsState {
     this.filterFromDate,
     this.filterToDate,
     this.filterByType,
+    this.activeSeasonId = 0,
     this.teams = const [],
     this.attendanceByTeam = const {},
     this.overallAttendance = 0.0,
@@ -132,6 +134,7 @@ class TrainingsLoaded extends TrainingsState {
         filterFromDate,
         filterToDate,
         filterByType,
+        activeSeasonId,
         teams,
         attendanceByTeam,
         overallAttendance,
@@ -150,6 +153,7 @@ class TrainingsLoaded extends TrainingsState {
     Object? filterFromDate = _unset,
     Object? filterToDate = _unset,
     Object? filterByType = _unset,
+    int? activeSeasonId,
     List<Map<String, dynamic>>? teams,
     Map<int, double>? attendanceByTeam,
     double? overallAttendance,
@@ -170,6 +174,7 @@ class TrainingsLoaded extends TrainingsState {
           filterToDate == _unset ? this.filterToDate : filterToDate as DateTime?,
       filterByType:
           filterByType == _unset ? this.filterByType : filterByType as int?,
+      activeSeasonId: activeSeasonId ?? this.activeSeasonId,
       teams: teams ?? this.teams,
       attendanceByTeam: attendanceByTeam ?? this.attendanceByTeam,
       overallAttendance: overallAttendance ?? this.overallAttendance,

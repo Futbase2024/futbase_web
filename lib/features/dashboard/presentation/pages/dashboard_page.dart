@@ -13,6 +13,8 @@ import '../../../trainings/presentation/widgets/trainings_content.dart';
 import '../../../matches/presentation/widgets/matches_content.dart';
 import '../../../results/presentation/widgets/results_content.dart';
 import '../../../scouting/presentation/pages/scouting_page.dart';
+import '../../../season/presentation/widgets/season_content.dart';
+import '../../../reports/presentation/widgets/reports_content.dart';
 
 /// Página principal del Dashboard
 ///
@@ -31,10 +33,13 @@ class _DashboardPageState extends State<DashboardPage> {
   String? _equipoName;
   String? _clubName;
   String? _clubEscudo;
+  late final Stopwatch _navigationStopwatch;
 
   @override
   void initState() {
     super.initState();
+    _navigationStopwatch = Stopwatch()..start();
+    debugPrint('🎯⏱️ [DASHBOARD] INIT STATE');
     _loadEquipoData();
   }
 
@@ -110,6 +115,9 @@ class _DashboardPageState extends State<DashboardPage> {
               setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
             },
             onItemTap: (item) {
+              debugPrint('🎯⏱️ [DASHBOARD] CLICK en menu: $item - +${_navigationStopwatch.elapsedMilliseconds}ms desde init');
+              _navigationStopwatch.reset();
+              _navigationStopwatch.start();
               setState(() => _selectedNavItem = item);
             },
             userRole: role,
@@ -169,6 +177,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildDashboardContent(UserRole? role, UsuariosEntity? user, int idTemporada) {
+    debugPrint('🎯⏱️ [DASHBOARD] _buildDashboardContent called: $_selectedNavItem - +${_navigationStopwatch.elapsedMilliseconds}ms desde click');
+
     // Si no hay usuario, mostrar error
     if (user == null) {
       return const Center(
@@ -188,7 +198,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
     // Si es training, mostrar contenido de entrenamientos
     if (_selectedNavItem == 'training') {
-      return TrainingsContent(user: user, userRole: role ?? UserRole.entrenador);
+      debugPrint('🎯⏱️ [DASHBOARD] Creando TrainingsContent - +${_navigationStopwatch.elapsedMilliseconds}ms');
+      return TrainingsContent(user: user, userRole: role);
     }
 
     // Si es matches, mostrar contenido de partidos
@@ -204,6 +215,16 @@ class _DashboardPageState extends State<DashboardPage> {
     // Si es scouting, mostrar página de scouting
     if (_selectedNavItem == 'scouting') {
       return const ScoutingPage();
+    }
+
+    // Si es season, mostrar contenido de cambio de temporada
+    if (_selectedNavItem == 'season') {
+      return const SeasonContent();
+    }
+
+    // Si es reports, mostrar contenido de informes
+    if (_selectedNavItem == 'reports') {
+      return ReportsContent(user: user, userRole: role ?? UserRole.entrenador);
     }
 
     // Si no está en dashboard, mostrar placeholder
@@ -276,6 +297,14 @@ class _DashboardPageState extends State<DashboardPage> {
         return Icons.fitness_center;
       case 'matches':
         return Icons.sports_soccer;
+      case 'results':
+        return Icons.emoji_events;
+      case 'reports':
+        return Icons.assessment;
+      case 'scouting':
+        return Icons.analytics;
+      case 'season':
+        return Icons.calendar_today;
       case 'fees':
         return Icons.payments;
       case 'clothing':
@@ -299,6 +328,14 @@ class _DashboardPageState extends State<DashboardPage> {
         return 'Entrenamientos';
       case 'matches':
         return 'Partidos';
+      case 'results':
+        return 'Resultados';
+      case 'reports':
+        return 'Informes';
+      case 'scouting':
+        return 'Scouting';
+      case 'season':
+        return 'Cambio de Temporada';
       case 'fees':
         return 'Cuotas';
       case 'clothing':

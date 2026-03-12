@@ -10,21 +10,29 @@ abstract class TrainingsEvent extends Equatable {
 /// Cargar entrenamientos de un equipo
 class TrainingsLoadRequested extends TrainingsEvent {
   final int idequipo;
+  final int activeSeasonId;
 
-  const TrainingsLoadRequested({required this.idequipo});
+  const TrainingsLoadRequested({
+    required this.idequipo,
+    required this.activeSeasonId,
+  });
 
   @override
-  List<Object?> get props => [idequipo];
+  List<Object?> get props => [idequipo, activeSeasonId];
 }
 
 /// Refrescar lista de entrenamientos
 class TrainingsRefreshRequested extends TrainingsEvent {
   final int idequipo;
+  final int activeSeasonId;
 
-  const TrainingsRefreshRequested({required this.idequipo});
+  const TrainingsRefreshRequested({
+    required this.idequipo,
+    required this.activeSeasonId,
+  });
 
   @override
-  List<Object?> get props => [idequipo];
+  List<Object?> get props => [idequipo, activeSeasonId];
 }
 
 /// Filtrar entrenamientos por rango de fechas
@@ -180,31 +188,35 @@ class AttendanceSaveRequested extends TrainingsEvent {
 /// Cargar entrenamientos de todos los equipos de un club (para Club/Coordinador)
 class TrainingsLoadByClubRequested extends TrainingsEvent {
   final int idclub;
+  final int activeSeasonId;
   final DateTime? startDate;
   final DateTime? endDate;
 
   const TrainingsLoadByClubRequested({
     required this.idclub,
+    required this.activeSeasonId,
     this.startDate,
     this.endDate,
   });
 
   @override
-  List<Object?> get props => [idclub, startDate, endDate];
+  List<Object?> get props => [idclub, activeSeasonId, startDate, endDate];
 }
 
 /// Cargar estadísticas de asistencia
 class AttendanceStatsRequested extends TrainingsEvent {
   final int idclub;
   final int? idequipo;
+  final int activeSeasonId;
 
   const AttendanceStatsRequested({
     required this.idclub,
+    required this.activeSeasonId,
     this.idequipo,
   });
 
   @override
-  List<Object?> get props => [idclub, idequipo];
+  List<Object?> get props => [idclub, activeSeasonId, idequipo];
 }
 
 /// Cambiar vista de calendario

@@ -15,10 +15,12 @@ class ScoutingPlayerCard extends StatelessWidget {
     super.key,
     required this.player,
     this.isComparing = false,
+    this.showClub = false,
   });
 
   final Map<String, dynamic> player;
   final bool isComparing;
+  final bool showClub;
 
   @override
   Widget build(BuildContext context) {
@@ -176,6 +178,32 @@ class ScoutingPlayerCard extends StatelessWidget {
                 ],
               ),
 
+              // Club (solo para superAdmin)
+              if (showClub) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.sports_soccer,
+                      size: 12,
+                      color: AppColors.gray400,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        player['club'] as String? ?? '',
+                        style: AppTypography.labelSmall.copyWith(
+                          color: AppColors.gray500,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
               const Spacer(),
 
               // Stats row
@@ -224,6 +252,8 @@ class ScoutingPlayerCard extends StatelessWidget {
   Widget _buildRatingBar(int? valoracion) {
     final value = valoracion ?? 0;
     final percentage = value / 100;
+    // Convertir a escala de 5 (80 -> 4.0)
+    final ratingOutOf5 = (value / 20).toStringAsFixed(1);
 
     Color color;
     if (value >= 80) {
@@ -251,7 +281,7 @@ class ScoutingPlayerCard extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Text(
-          '$value',
+          ratingOutOf5,
           style: AppTypography.labelMedium.copyWith(
             color: color,
             fontWeight: FontWeight.w700,

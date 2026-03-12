@@ -21,8 +21,8 @@ class TeamsList extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 350,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5,
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
           childAspectRatio: 1.4,
@@ -207,7 +207,7 @@ class TeamCard extends StatelessWidget {
                       _buildBadge(
                         icon: Icons.calendar_today_outlined,
                         label: temporada,
-                        color: AppColors.success,
+                        color: AppColors.primary,
                       ),
                   ],
                 ),

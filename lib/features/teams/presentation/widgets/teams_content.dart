@@ -8,10 +8,9 @@ import '../../bloc/teams_state.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/config/app_config_cubit.dart';
 import '../../../../../shared/widgets/shared_widgets.dart';
 import 'teams_list.dart';
-import 'teams_search_bar.dart';
-import 'teams_filter_bar.dart';
 import 'teams_empty_state.dart';
 import 'team_form_dialog.dart';
 
@@ -32,7 +31,6 @@ class TeamsContent extends StatefulWidget {
 
 class _TeamsContentState extends State<TeamsContent> {
   late final TeamsBloc _teamsBloc;
-  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -43,7 +41,6 @@ class _TeamsContentState extends State<TeamsContent> {
 
   @override
   void dispose() {
-    _searchController.dispose();
     _teamsBloc.close();
     super.dispose();
   }
@@ -51,25 +48,17 @@ class _TeamsContentState extends State<TeamsContent> {
   void _loadTeams() {
     final idclub = widget.user.idclub;
     if (idclub > 0) {
-      _teamsBloc.add(TeamsLoadRequested(idclub: idclub));
+      // Obtener la temporada activa del AppConfigCubit global
+      final appConfigCubit = context.read<AppConfigCubit>();
+      final activeSeasonId = appConfigCubit.activeSeasonId;
+
+      debugPrint('🗓️ [TEAMS] Cargando equipos: idclub=$idclub, temporada=$activeSeasonId');
+
+      _teamsBloc.add(TeamsLoadRequested(
+        idclub: idclub,
+        activeSeasonId: activeSeasonId,
+      ));
     }
-  }
-
-  void _onSearch(String query) {
-    _teamsBloc.add(TeamsSearchRequested(query: query));
-  }
-
-  void _onCategoryFilter(int? idcategoria) {
-    _teamsBloc.add(TeamsFilterByCategory(idcategoria: idcategoria));
-  }
-
-  void _onSeasonFilter(int? idtemporada) {
-    _teamsBloc.add(TeamsFilterBySeason(idtemporada: idtemporada));
-  }
-
-  void _clearFilters() {
-    _searchController.clear();
-    _teamsBloc.add(const TeamsClearFilters());
   }
 
   Future<void> _showCreateDialog() async {
@@ -169,62 +158,71 @@ class _TeamsContentState extends State<TeamsContent> {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _teamsBloc,
-      child: BlocConsumer<TeamsBloc, TeamsState>(
-        listener: (context, state) {
-          if (state is TeamsError) {
-            CeInfoDialog.error(
-              context,
-              title: 'Error',
-              message: state.message,
-            );
-          }
+      child: BlocListener<AppConfigCubit, AppConfigState>(
+        listenWhen: (previous, current) =>
+            previous.activeSeasonId != current.activeSeasonId,
+        listener: (context, configState) {
+          // Recargar equipos cuando cambia la temporada
+          debugPrint('🗓️ [TEAMS] Temporada cambiada a: ${configState.activeSeasonName}');
+          _loadTeams();
         },
-        builder: (context, state) {
-          return Scaffold(
-            backgroundColor: const Color(0xFFF8FAFB),
-            body: SafeArea(
-              child: switch (state) {
-                TeamsInitial() => const CELoading.inline(),
-                TeamsLoading() => const CELoading.inline(),
-                TeamsLoaded(
-                  :final teams,
-                  :final filteredTeams,
-                  :final categories,
-                  :final seasons,
-                  :final searchQuery,
-                  :final filterByCategory,
-                  :final filterBySeason,
-                  :final isCreating,
-                  :final isUpdating,
-                  :final isDeleting,
-                ) =>
-                  Stack(
-                    children: [
-                      _buildLoadedContent(
-                        context,
-                        teams: teams,
-                        filteredTeams: filteredTeams,
-                        categories: categories,
-                        seasons: seasons,
-                        searchQuery: searchQuery,
-                        filterByCategory: filterByCategory,
-                        filterBySeason: filterBySeason,
-                      ),
-                      if (isCreating || isUpdating || isDeleting)
-                        Container(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          child: const Center(
-                            child: CELoading.inline(message: 'Guardando...'),
-                          ),
+        child: BlocConsumer<TeamsBloc, TeamsState>(
+          listener: (context, state) {
+            if (state is TeamsError) {
+              CeInfoDialog.error(
+                context,
+                title: 'Error',
+                message: state.message,
+              );
+            }
+          },
+          builder: (context, state) {
+            return Scaffold(
+              backgroundColor: const Color(0xFFF8FAFB),
+              body: SafeArea(
+                child: switch (state) {
+                  TeamsInitial() => const CELoading.inline(),
+                  TeamsLoading() => const CELoading.inline(),
+                  TeamsLoaded(
+                    :final teams,
+                    :final filteredTeams,
+                    :final categories,
+                    :final seasons,
+                    :final searchQuery,
+                    :final filterByCategory,
+                    :final filterBySeason,
+                    :final isCreating,
+                    :final isUpdating,
+                    :final isDeleting,
+                  ) =>
+                    Stack(
+                      children: [
+                        _buildLoadedContent(
+                          context,
+                          teams: teams,
+                          filteredTeams: filteredTeams,
+                          categories: categories,
+                          seasons: seasons,
+                          searchQuery: searchQuery,
+                          filterByCategory: filterByCategory,
+                          filterBySeason: filterBySeason,
                         ),
-                    ],
-                  ),
-                TeamsError(:final message) => _buildErrorWidget(message),
-                _ => const CELoading.inline(),
-              },
-            ),
-          );
-        },
+                        if (isCreating || isUpdating || isDeleting)
+                          Container(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            child: const Center(
+                              child: CELoading.inline(message: 'Guardando...'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  TeamsError(:final message) => _buildErrorWidget(message),
+                  _ => const CELoading.inline(),
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -239,65 +237,11 @@ class _TeamsContentState extends State<TeamsContent> {
     required int? filterByCategory,
     required int? filterBySeason,
   }) {
-    final hasActiveFilters =
-        searchQuery.isNotEmpty || filterByCategory != null || filterBySeason != null;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header con estadísticas
         _buildHeader(teams.length),
-
-        // Barra de búsqueda
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          child: TeamsSearchBar(
-            controller: _searchController,
-            onSearch: _onSearch,
-            onClear: () => _onSearch(''),
-          ),
-        ),
-
-        // Filtros por categoría y temporada
-        if (categories.isNotEmpty || seasons.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: TeamsFilterBar(
-              categories: categories,
-              seasons: seasons,
-              selectedCategory: filterByCategory,
-              selectedSeason: filterBySeason,
-              onCategoryChanged: _onCategoryFilter,
-              onSeasonChanged: _onSeasonFilter,
-            ),
-          ),
-
-        AppSpacing.vSpaceMd,
-
-        // Indicador de filtros activos
-        if (hasActiveFilters)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Row(
-              children: [
-                Text(
-                  '${filteredTeams.length} de ${teams.length} equipos',
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.gray500,
-                  ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _clearFilters,
-                  icon: const Icon(Icons.clear_all, size: 18),
-                  label: const Text('Limpiar filtros'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
 
         AppSpacing.vSpaceMd,
 
@@ -305,8 +249,8 @@ class _TeamsContentState extends State<TeamsContent> {
         Expanded(
           child: filteredTeams.isEmpty
               ? TeamsEmptyState(
-                  hasFilters: hasActiveFilters,
-                  onClearFilters: _clearFilters,
+                  hasFilters: false,
+                  onClearFilters: () {},
                   onCreateTeam: _showCreateDialog,
                 )
               : TeamsList(
@@ -321,7 +265,7 @@ class _TeamsContentState extends State<TeamsContent> {
 
   Widget _buildHeader(int totalTeams) {
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -335,97 +279,57 @@ class _TeamsContentState extends State<TeamsContent> {
       child: Row(
         children: [
           // Título
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            'Equipos',
+            style: AppTypography.h5.copyWith(
+              color: AppColors.gray900,
+            ),
+          ),
+
+          const Spacer(),
+
+          // Contador de equipos
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
               children: [
-                Text(
-                  'Equipos',
-                  style: AppTypography.h4.copyWith(
-                    color: AppColors.gray900,
-                  ),
+                Icon(
+                  Icons.groups_outlined,
+                  size: 18,
+                  color: AppColors.primary,
                 ),
-                AppSpacing.vSpaceXs,
+                AppSpacing.hSpaceXs,
                 Text(
-                  'Gestiona los equipos de tu club',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.gray500,
+                  '$totalTeams equipos',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
+          AppSpacing.hSpaceMd,
 
-          // KPIs rápidos
-          _buildQuickStat(
-            icon: Icons.groups,
-            value: totalTeams.toString(),
-            label: 'Equipos',
-            color: AppColors.primary,
-          ),
-          AppSpacing.hSpaceXl,
-          _buildQuickStat(
-            icon: Icons.add_circle_outline,
-            value: 'Añadir',
-            label: 'Nuevo',
-            color: AppColors.success,
-            isButton: true,
-            onTap: _showCreateDialog,
+          // Botón Añadir
+          ElevatedButton.icon(
+            onPressed: _showCreateDialog,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Nuevo'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStat({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-    bool isButton = false,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isButton ? color : color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isButton ? color : color.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isButton ? Colors.white : color,
-              size: 20,
-            ),
-            AppSpacing.hSpaceSm,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: AppTypography.labelMedium.copyWith(
-                    color: isButton ? Colors.white : color,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: AppTypography.caption.copyWith(
-                    color: isButton
-                        ? Colors.white.withValues(alpha: 0.8)
-                        : AppColors.gray500,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

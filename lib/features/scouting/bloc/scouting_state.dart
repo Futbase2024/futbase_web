@@ -126,6 +126,15 @@ class ScoutingLoaded extends ScoutingState {
   /// Jugadores en comparador (máximo 3)
   final List<Map<String, dynamic>> comparisonPlayers;
 
+  /// Club del usuario actual (para filtrar)
+  final int? userClubId;
+
+  /// Si el usuario es super admin (puede ver todos los clubs)
+  final bool isSuperAdmin;
+
+  /// Si se están cargando los jugadores
+  final bool isLoadingPlayers;
+
   const ScoutingLoaded({
     required this.players,
     required this.filteredPlayers,
@@ -140,6 +149,9 @@ class ScoutingLoaded extends ScoutingState {
     this.selectedPlayer,
     this.playerHistory,
     this.comparisonPlayers = const [],
+    this.userClubId,
+    this.isSuperAdmin = false,
+    this.isLoadingPlayers = false,
   });
 
   /// Jugadores de la página actual
@@ -174,6 +186,9 @@ class ScoutingLoaded extends ScoutingState {
         selectedPlayer,
         playerHistory,
         comparisonPlayers,
+        userClubId,
+        isSuperAdmin,
+        isLoadingPlayers,
       ];
 
   ScoutingLoaded copyWith({
@@ -192,6 +207,9 @@ class ScoutingLoaded extends ScoutingState {
     List<Map<String, dynamic>>? playerHistory,
     bool clearPlayerHistory = false,
     List<Map<String, dynamic>>? comparisonPlayers,
+    int? userClubId,
+    bool? isSuperAdmin,
+    bool? isLoadingPlayers,
   }) {
     return ScoutingLoaded(
       players: players ?? this.players,
@@ -209,6 +227,9 @@ class ScoutingLoaded extends ScoutingState {
       playerHistory:
           clearPlayerHistory ? null : (playerHistory ?? this.playerHistory),
       comparisonPlayers: comparisonPlayers ?? this.comparisonPlayers,
+      userClubId: userClubId ?? this.userClubId,
+      isSuperAdmin: isSuperAdmin ?? this.isSuperAdmin,
+      isLoadingPlayers: isLoadingPlayers ?? this.isLoadingPlayers,
     );
   }
 }

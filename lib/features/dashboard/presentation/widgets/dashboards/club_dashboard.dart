@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -6,6 +7,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/widgets/shared_widgets.dart';
+import '../../../../../core/config/app_config_cubit.dart';
 
 /// Dashboard para administradores de Club con estadísticas agregadas de todos sus equipos
 class ClubDashboard extends StatefulWidget {
@@ -25,6 +27,7 @@ class _ClubDashboardState extends State<ClubDashboard> {
 
   bool _isLoading = true;
   String? _error;
+  late final Stopwatch _loadStopwatch;
 
   // Datos del club
   String _clubName = '';
@@ -48,10 +51,13 @@ class _ClubDashboardState extends State<ClubDashboard> {
   @override
   void initState() {
     super.initState();
+    _loadStopwatch = Stopwatch()..start();
+    debugPrint('📊⏱️ [CLUB_DASH] INIT STATE');
     _loadData();
   }
 
   Future<void> _loadData() async {
+    debugPrint('📊⏱️ [CLUB_DASH] _loadData INICIO');
     try {
       setState(() {
         _isLoading = true;
@@ -67,18 +73,29 @@ class _ClubDashboardState extends State<ClubDashboard> {
         return;
       }
 
+      // Obtener la temporada activa del AppConfigCubit
+      final appConfigCubit = context.read<AppConfigCubit>();
+      final idTemporada = appConfigCubit.activeSeasonId;
+
       // Obtener nombre del club
+      debugPrint('📊⏱️ [CLUB_DASH] [1/6] Query tclubes...');
+      var stepTime = Stopwatch()..start();
       final clubData = await _supabase
           .from('tclubes')
           .select('club')
           .eq('id', idclub)
           .maybeSingle();
+      debugPrint('📊⏱️ [CLUB_DASH] [1/6] tclubes: ${stepTime.elapsedMilliseconds}ms');
 
-      // Obtener equipos del club
+      // Obtener equipos del club filtrados por temporada activa
+      debugPrint('📊⏱️ [CLUB_DASH] [2/6] Query vequipos...');
+      stepTime.reset(); stepTime.start();
       final equiposData = await _supabase
-          .from('tequipos')
+          .from('vequipos')
           .select('id, equipo, idcategoria')
-          .eq('idclub', idclub);
+          .eq('idclub', idclub)
+          .eq('idtemporada', idTemporada);
+      debugPrint('📊⏱️ [CLUB_DASH] [2/6] vequipos: ${stepTime.elapsedMilliseconds}ms');
 
       // Obtener IDs de equipos para consultas relacionadas
       final equipoIds = (equiposData as List)
@@ -98,11 +115,15 @@ class _ClubDashboardState extends State<ClubDashboard> {
         return;
       }
 
-      // Contar jugadores de todos los equipos (incluye idequipo para agrupar)
+      // Contar jugadores de todos los equipos filtrados por temporada activa
+      debugPrint('📊⏱️ [CLUB_DASH] [3/6] Query vjugadores...');
+      stepTime.reset(); stepTime.start();
       final jugadoresData = await _supabase
-          .from('tjugadores')
+          .from('vjugadores')
           .select('id, idequipo')
+          .eq('idtemporada', idTemporada)
           .inFilter('idequipo', equipoIds);
+      debugPrint('📊⏱️ [CLUB_DASH] [3/6] vjugadores: ${stepTime.elapsedMilliseconds}ms');
 
       // Contar jugadores por equipo
       final jugadoresPorEquipo = <int, int>{};
@@ -111,17 +132,25 @@ class _ClubDashboardState extends State<ClubDashboard> {
         jugadoresPorEquipo[idequipo] = (jugadoresPorEquipo[idequipo] ?? 0) + 1;
       }
 
-      // Obtener entrenamientos de todos los equipos
+      // Obtener entrenamientos de todos los equipos filtrados por temporada activa
+      debugPrint('📊⏱️ [CLUB_DASH] [4/6] Query ventrenamientos...');
+      stepTime.reset(); stepTime.start();
       final entrenamientosData = await _supabase
-          .from('tentrenamientos')
+          .from('ventrenamientos')
           .select('id')
+          .eq('idtemporada', idTemporada)
           .inFilter('idequipo', equipoIds);
+      debugPrint('📊⏱️ [CLUB_DASH] [4/6] ventrenamientos: ${stepTime.elapsedMilliseconds}ms');
 
-      // Obtener partidos de todos los equipos desde la vista vpartido
+      // Obtener partidos de todos los equipos filtrados por temporada activa
+      debugPrint('📊⏱️ [CLUB_DASH] [5/6] Query vpartido...');
+      stepTime.reset(); stepTime.start();
       final partidosData = await _supabase
           .from('vpartido')
           .select('id, goles, golesrival, finalizado')
+          .eq('idtemporada', idTemporada)
           .inFilter('idequipo', equipoIds);
+      debugPrint('📊⏱️ [CLUB_DASH] [5/6] vpartido: ${stepTime.elapsedMilliseconds}ms');
 
       // Clasificar partidos: solo los finalizados cuentan para estadísticas
       final jugados = (partidosData as List).where((p) {
@@ -171,9 +200,12 @@ class _ClubDashboardState extends State<ClubDashboard> {
       }
 
       // Obtener categorías para mostrar en la lista de equipos
+      debugPrint('📊⏱️ [CLUB_DASH] [6/6] Query tcategorias...');
+      stepTime.reset(); stepTime.start();
       final categoriasData = await _supabase
           .from('tcategorias')
           .select('id, categoria');
+      debugPrint('📊⏱️ [CLUB_DASH] [6/6] tcategorias: ${stepTime.elapsedMilliseconds}ms');
 
       final categoriasMap = <int, String>{};
       for (final cat in categoriasData as List) {
@@ -192,6 +224,7 @@ class _ClubDashboardState extends State<ClubDashboard> {
         };
       }).toList();
 
+      debugPrint('📊⏱️ [CLUB_DASH] ✅ TOTAL: ${_loadStopwatch.elapsedMilliseconds}ms');
       setState(() {
         _clubName = clubData?['club'] ?? 'Club desconocido';
         _totalEquipos = equiposData.length;
@@ -217,6 +250,19 @@ class _ClubDashboardState extends State<ClubDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocListener<AppConfigCubit, AppConfigState>(
+      listenWhen: (previous, current) =>
+          previous.activeSeasonId != current.activeSeasonId,
+      listener: (context, state) {
+        // Recargar datos cuando cambia la temporada
+        debugPrint('🗓️ [CLUB_DASHBOARD] Temporada cambiada a: ${state.activeSeasonName}');
+        _loadData();
+      },
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
     if (_isLoading) {
       return const CELoading.inline();
     }

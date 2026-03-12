@@ -21,6 +21,20 @@ class MatchesLoadRequested extends MatchesEvent {
   List<Object?> get props => [idequipo, idTemporada];
 }
 
+/// Cargar partidos de todos los equipos de un club (para club/coordinador)
+class MatchesLoadByClubRequested extends MatchesEvent {
+  final int idclub;
+  final int idTemporada;
+
+  const MatchesLoadByClubRequested({
+    required this.idclub,
+    required this.idTemporada,
+  });
+
+  @override
+  List<Object?> get props => [idclub, idTemporada];
+}
+
 /// Refrescar lista de partidos
 class MatchesRefreshRequested extends MatchesEvent {
   final int idequipo;

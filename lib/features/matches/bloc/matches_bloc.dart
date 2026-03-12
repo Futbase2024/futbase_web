@@ -13,6 +13,7 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       : _supabase = supabase ?? Supabase.instance.client,
         super(const MatchesInitial()) {
     on<MatchesLoadRequested>(_onLoadRequested);
+    on<MatchesLoadByClubRequested>(_onLoadByClubRequested);
     on<MatchesRefreshRequested>(_onRefreshRequested);
     on<MatchesFilterByDate>(_onFilterByDate);
     on<MatchesFilterByCompetition>(_onFilterByCompetition);
@@ -107,6 +108,106 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       ));
     } catch (e) {
       debugPrint('⚽ [MatchesBloc] Error: $e');
+      emit(MatchesError(message: e.toString()));
+    }
+  }
+
+  /// Carga partidos de todos los equipos de un club (para club/coordinador)
+  Future<void> _onLoadByClubRequested(
+    MatchesLoadByClubRequested event,
+    Emitter<MatchesState> emit,
+  ) async {
+    debugPrint('⚽ [MatchesBloc] Cargando partidos del club (idclub=${event.idclub}, idTemporada=${event.idTemporada})');
+    emit(const MatchesLoading());
+
+    try {
+      // Primero obtener los IDs de equipos del club
+      final equiposData = await _supabase
+          .from('vequipos')
+          .select('id')
+          .eq('idclub', event.idclub)
+          .eq('idtemporada', event.idTemporada);
+
+      final equipoIds = (equiposData as List)
+          .map((e) => e['id'] as int)
+          .toList();
+
+      if (equipoIds.isEmpty) {
+        debugPrint('⚽ [MatchesBloc] No hay equipos para este club');
+        emit(MatchesLoaded(
+          matches: [],
+          filteredMatches: [],
+          competitions: {},
+        ));
+        return;
+      }
+
+      // Cargar TODOS los partidos de los equipos del club
+      final matchesData = await _supabase
+          .from('vpartido')
+          .select('''
+            id,
+            idjornada,
+            idtemporada,
+            idcategoria,
+            idequipo,
+            idclub,
+            idrival,
+            idclubrival,
+            rival,
+            ncortorival,
+            ncortoclubrival,
+            fecha,
+            hora,
+            horaconvocatoria,
+            casafuera,
+            goles,
+            golesrival,
+            finalizado,
+            minuto,
+            jornada,
+            jcorta,
+            temporada,
+            categoria,
+            club,
+            escudo,
+            ncortoclub,
+            equipo,
+            ncortoequipo,
+            campo,
+            escudorival,
+            observaciones,
+            obsconvocatoria,
+            sistema,
+            titulares,
+            clubequipo,
+            camiseta,
+            camisetapor
+          ''')
+          .inFilter('idequipo', equipoIds)
+          .eq('idtemporada', event.idTemporada)
+          .order('fecha', ascending: false);
+
+      final matches = (matchesData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+
+      // Extraer competiciones únicas
+      final competitions = <int, String>{};
+      for (final match in matches) {
+        final idjornada = match['idjornada'] as int?;
+        final jornada = match['jornada'] as String?;
+        if (idjornada != null && jornada != null && !competitions.containsKey(idjornada)) {
+          competitions[idjornada] = jornada;
+        }
+      }
+
+      debugPrint('⚽ [MatchesBloc] Cargados ${matches.length} partidos del club desde vpartido');
+      emit(MatchesLoaded(
+        matches: matches,
+        filteredMatches: matches,
+        competitions: competitions,
+      ));
+    } catch (e) {
+      debugPrint('⚽ [MatchesBloc] Error al cargar partidos del club: $e');
       emit(MatchesError(message: e.toString()));
     }
   }

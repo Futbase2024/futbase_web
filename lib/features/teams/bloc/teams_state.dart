@@ -34,12 +34,16 @@ class TeamsLoaded extends TeamsState {
   final bool isCreating;
   final bool isUpdating;
   final bool isDeleting;
+  final int idclub;
+  final int activeSeasonId;
 
   const TeamsLoaded({
     required this.teams,
     required this.filteredTeams,
     required this.categories,
     required this.seasons,
+    required this.idclub,
+    required this.activeSeasonId,
     this.searchQuery = '',
     this.filterByCategory,
     this.filterBySeason,
@@ -61,6 +65,8 @@ class TeamsLoaded extends TeamsState {
         isCreating,
         isUpdating,
         isDeleting,
+        idclub,
+        activeSeasonId,
       ];
 
   /// Copia con nuevos valores
@@ -76,6 +82,8 @@ class TeamsLoaded extends TeamsState {
     bool? isCreating,
     bool? isUpdating,
     bool? isDeleting,
+    int? idclub,
+    int? activeSeasonId,
   }) {
     return TeamsLoaded(
       teams: teams ?? this.teams,
@@ -94,6 +102,8 @@ class TeamsLoaded extends TeamsState {
       isCreating: isCreating ?? this.isCreating,
       isUpdating: isUpdating ?? this.isUpdating,
       isDeleting: isDeleting ?? this.isDeleting,
+      idclub: idclub ?? this.idclub,
+      activeSeasonId: activeSeasonId ?? this.activeSeasonId,
     );
   }
 }

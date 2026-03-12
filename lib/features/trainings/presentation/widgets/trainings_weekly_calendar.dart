@@ -24,11 +24,13 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
   final VoidCallback onNextWeek;
   final VoidCallback onToday;
 
-  // Horario de 08:00 a 21:00
+  // Horario de 08:00 a 23:00
   static const int _startHour = 8;
-  static const int _endHour = 21;
+  static const int _endHour = 23;
   static const double _hourRowHeight = 60.0;
-  static const double _timeColumnWidth = 60.0;
+  static const double _timeColumnWidth = 56.0;
+  static const double _minBlockWidth = 90.0; // Ancho mínimo para mostrar info completa
+  static const double _emptyDayWidth = 40.0; // Ancho para días sin entrenamientos
 
   // Colores para equipos por índice
   static final List<Color> _teamColors = [
@@ -107,6 +109,86 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
     return (duration / 60) * _hourRowHeight;
   }
 
+  /// Calcula cuántas columnas virtuales se necesitan para un día
+  int _calculateColumnsNeeded(List<Map<String, dynamic>> dayTrainings) {
+    if (dayTrainings.isEmpty) return 0;
+
+    // Ordenar por hora de inicio
+    final sorted = List<Map<String, dynamic>>.from(dayTrainings);
+    sorted.sort((a, b) {
+      final aStart = _parseTimeToMinutes(a['hinicio']?.toString()) ?? 0;
+      final bStart = _parseTimeToMinutes(b['hinicio']?.toString()) ?? 0;
+      return aStart.compareTo(bStart);
+    });
+
+    // Algoritmo para encontrar el máximo de columnas paralelas
+    final columnEndTimes = <int>[];
+
+    for (final training in sorted) {
+      final start = _parseTimeToMinutes(training['hinicio']?.toString()) ?? 0;
+      final end = _parseTimeToMinutes(training['hfin']?.toString()) ?? 1440;
+
+      // Buscar una columna libre
+      int? freeColumn;
+      for (var i = 0; i < columnEndTimes.length; i++) {
+        if (columnEndTimes[i] <= start) {
+          freeColumn = i;
+          break;
+        }
+      }
+
+      if (freeColumn != null) {
+        columnEndTimes[freeColumn] = end;
+      } else {
+        columnEndTimes.add(end);
+      }
+    }
+
+    return columnEndTimes.length;
+  }
+
+  /// Asigna columna a cada entrenamiento
+  List<({Map<String, dynamic> training, int column})> _assignColumns(
+    List<Map<String, dynamic>> dayTrainings,
+  ) {
+    if (dayTrainings.isEmpty) return [];
+
+    // Ordenar por hora de inicio
+    final sorted = List<Map<String, dynamic>>.from(dayTrainings);
+    sorted.sort((a, b) {
+      final aStart = _parseTimeToMinutes(a['hinicio']?.toString()) ?? 0;
+      final bStart = _parseTimeToMinutes(b['hinicio']?.toString()) ?? 0;
+      return aStart.compareTo(bStart);
+    });
+
+    final columnEndTimes = <int>[];
+    final result = <({Map<String, dynamic> training, int column})>[];
+
+    for (final training in sorted) {
+      final start = _parseTimeToMinutes(training['hinicio']?.toString()) ?? 0;
+      final end = _parseTimeToMinutes(training['hfin']?.toString()) ?? 1440;
+
+      // Buscar una columna libre
+      int? freeColumn;
+      for (var i = 0; i < columnEndTimes.length; i++) {
+        if (columnEndTimes[i] <= start) {
+          freeColumn = i;
+          break;
+        }
+      }
+
+      if (freeColumn != null) {
+        columnEndTimes[freeColumn] = end;
+        result.add((training: training, column: freeColumn));
+      } else {
+        columnEndTimes.add(end);
+        result.add((training: training, column: columnEndTimes.length - 1));
+      }
+    }
+
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final weekDays = _getWeekDays();
@@ -131,10 +213,7 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
           // Header con navegación
           _buildHeader(weekDays, isCurrentWeek),
 
-          // Nombres de días
-          _buildDayHeaders(weekDays, now),
-
-          // Grid de calendario
+          // Grid de calendario con scroll horizontal
           Expanded(
             child: _buildCalendarGrid(weekDays, now),
           ),
@@ -225,49 +304,183 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buildDayHeaders(List<DateTime> weekDays, DateTime now) {
+  Widget _buildCalendarGrid(List<DateTime> weekDays, DateTime now) {
+    // Calcular columnas necesarias por día
+    final columnsPerDay = <int, int>{};
+    for (var i = 0; i < 7; i++) {
+      final day = weekDays[i];
+      final dayTrainings = _getTrainingsForDate(day);
+      columnsPerDay[i] = _calculateColumnsNeeded(dayTrainings);
+    }
+
+    // Verificar si hay algún entrenamiento en la semana
+    final hasAnyTraining = columnsPerDay.values.any((v) => v > 0);
+
+    // Calcular ancho total necesario
+    double totalWidth = _timeColumnWidth;
+    for (var i = 0; i < 7; i++) {
+      final cols = columnsPerDay[i] ?? 0;
+      if (cols == 0) {
+        totalWidth += _emptyDayWidth;
+      } else {
+        totalWidth += cols * _minBlockWidth;
+      }
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final needsScroll = totalWidth > availableWidth;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: needsScroll ? null : const NeverScrollableScrollPhysics(),
+          child: SizedBox(
+            width: needsScroll ? totalWidth : availableWidth,
+            child: Column(
+              children: [
+                // Headers de días
+                _buildDayHeadersRow(weekDays, now, columnsPerDay, needsScroll, availableWidth, hasAnyTraining),
+
+                // Grid con horas y entrenamientos
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: SizedBox(
+                      width: needsScroll ? totalWidth : availableWidth,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Columna de horas
+                          _buildTimeColumn(),
+
+                          // Columnas de días
+                          ...List.generate(7, (i) {
+                            final day = weekDays[i];
+                            final dayTrainings = _getTrainingsForDate(day);
+                            final cols = columnsPerDay[i] ?? 0;
+
+                            double dayWidth;
+                            if (!hasAnyTraining) {
+                              // Sin entrenamientos: distribuir equitativamente
+                              dayWidth = (availableWidth - _timeColumnWidth) / 7;
+                            } else if (cols == 0) {
+                              dayWidth = _emptyDayWidth;
+                            } else {
+                              if (needsScroll) {
+                                dayWidth = cols * _minBlockWidth;
+                              } else {
+                                // Distribuir espacio disponible
+                                final totalTrainingsCols = columnsPerDay.values.fold(0, (a, b) => a + b);
+                                final emptyDays = columnsPerDay.values.where((v) => v == 0).length;
+                                final remainingSpace = availableWidth - _timeColumnWidth - (emptyDays * _emptyDayWidth);
+                                dayWidth = (remainingSpace / totalTrainingsCols) * cols;
+                              }
+                            }
+
+                            return _buildDayColumn(
+                              i,
+                              day,
+                              dayTrainings,
+                              now,
+                              cols,
+                              dayWidth,
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDayHeadersRow(
+    List<DateTime> weekDays,
+    DateTime now,
+    Map<int, int> columnsPerDay,
+    bool needsScroll,
+    double availableWidth,
+    bool hasAnyTraining,
+  ) {
     const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
     return Container(
-      padding: const EdgeInsets.only(left: _timeColumnWidth),
+      height: 44,
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppColors.gray200),
         ),
       ),
       child: Row(
-        children: weekDays.asMap().entries.map((entry) {
-          final i = entry.key;
-          final day = entry.value;
-          final isToday = day.year == now.year &&
-              day.month == now.month &&
-              day.day == now.day;
-          final isWeekend = i >= 5;
+        children: [
+          // Espacio para columna de horas
+          SizedBox(width: _timeColumnWidth),
 
-          return Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+          // Headers de días
+          ...List.generate(7, (i) {
+            final day = weekDays[i];
+            final isToday = day.year == now.year &&
+                day.month == now.month &&
+                day.day == now.day;
+            final isWeekend = i >= 5;
+            final cols = columnsPerDay[i] ?? 0;
+            final hasNoTrainings = cols == 0;
+
+            double dayWidth;
+            if (!hasAnyTraining) {
+              // Sin entrenamientos: distribuir equitativamente
+              dayWidth = (availableWidth - _timeColumnWidth) / 7;
+            } else if (cols == 0) {
+              dayWidth = _emptyDayWidth;
+            } else {
+              if (needsScroll) {
+                dayWidth = cols * _minBlockWidth;
+              } else {
+                final totalTrainingsCols = columnsPerDay.values.fold(0, (a, b) => a + b);
+                final emptyDays = columnsPerDay.values.where((v) => v == 0).length;
+                final remainingSpace = availableWidth - _timeColumnWidth - (emptyDays * _emptyDayWidth);
+                dayWidth = (remainingSpace / totalTrainingsCols) * cols;
+              }
+            }
+
+            return Container(
+              width: dayWidth,
+              padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
-                color: isToday
-                    ? AppColors.primary.withValues(alpha: 0.1)
-                    : null,
-                border: i > 0
-                    ? Border(left: BorderSide(color: AppColors.gray100))
-                    : null,
+                color: hasNoTrainings
+                    ? AppColors.gray100
+                    : isToday
+                        ? AppColors.primary.withValues(alpha: 0.1)
+                        : null,
+                border: Border(
+                  left: BorderSide(color: AppColors.gray200),
+                  bottom: BorderSide(color: AppColors.gray200),
+                ),
               ),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     dayNames[i],
                     style: AppTypography.labelSmall.copyWith(
-                      color: isWeekend ? AppColors.gray400 : AppColors.gray500,
+                      color: hasNoTrainings
+                          ? AppColors.gray400
+                          : isWeekend
+                              ? AppColors.gray400
+                              : AppColors.gray500,
                       fontWeight: FontWeight.w600,
+                      fontSize: 10,
                     ),
                   ),
-                  const SizedBox(height: 4),
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 20,
+                    height: 20,
                     decoration: BoxDecoration(
                       color: isToday ? AppColors.primary : null,
                       shape: BoxShape.circle,
@@ -275,42 +488,22 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
                     child: Center(
                       child: Text(
                         '${day.day}',
-                        style: AppTypography.labelMedium.copyWith(
+                        style: AppTypography.labelSmall.copyWith(
                           color: isToday
                               ? Colors.white
-                              : isWeekend
+                              : hasNoTrainings
                                   ? AppColors.gray400
-                                  : AppColors.gray900,
+                                  : isWeekend
+                                      ? AppColors.gray400
+                                      : AppColors.gray900,
                           fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                          fontSize: 10,
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildCalendarGrid(List<DateTime> weekDays, DateTime now) {
-    return SingleChildScrollView(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Columna de horas
-          _buildTimeColumn(),
-
-          // Columnas de días con entrenamientos
-          ...weekDays.asMap().entries.map((entry) {
-            final i = entry.key;
-            final day = entry.value;
-            final dayTrainings = _getTrainingsForDate(day);
-
-            return Expanded(
-              child: _buildDayColumn(i, day, dayTrainings, now),
             );
           }),
         ],
@@ -324,17 +517,13 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
       child: Column(
         children: List.generate(_endHour - _startHour + 1, (i) {
           final hour = _startHour + i;
-          final isHourEven = hour % 2 == 0;
 
           return Container(
             height: _hourRowHeight,
             padding: const EdgeInsets.only(right: 8, top: 2),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(
-                  color: AppColors.gray100,
-                  style: isHourEven ? BorderStyle.solid : BorderStyle.none,
-                ),
+                bottom: BorderSide(color: AppColors.gray100),
               ),
             ),
             child: Align(
@@ -343,6 +532,7 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
                 '${hour.toString().padLeft(2, '0')}:00',
                 style: AppTypography.caption.copyWith(
                   color: AppColors.gray400,
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -357,27 +547,35 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
     DateTime day,
     List<Map<String, dynamic>> dayTrainings,
     DateTime now,
+    int totalColumns,
+    double dayWidth,
   ) {
     final isWeekend = dayIndex >= 5;
     final isToday = day.year == now.year &&
         day.month == now.month &&
         day.day == now.day;
+    final hasNoTrainings = dayTrainings.isEmpty;
+
+    // Asignar columnas a entrenamientos
+    final trainingsWithColumns = _assignColumns(dayTrainings);
 
     return Container(
+      width: dayWidth,
       height: (_endHour - _startHour + 1) * _hourRowHeight,
       decoration: BoxDecoration(
-        color: isWeekend ? AppColors.gray50 : null,
+        color: hasNoTrainings
+            ? AppColors.gray100
+            : isWeekend
+                ? AppColors.gray50
+                : null,
         border: Border(
-          left: BorderSide(color: AppColors.gray100),
+          left: BorderSide(color: AppColors.gray200),
         ),
       ),
       child: Stack(
         children: [
           // Líneas de hora
           ...List.generate(_endHour - _startHour + 1, (i) {
-            final hour = _startHour + i;
-            final isHourEven = hour % 2 == 0;
-
             return Positioned(
               top: i * _hourRowHeight,
               left: 0,
@@ -387,7 +585,9 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isHourEven ? AppColors.gray100 : AppColors.gray50,
+                      color: hasNoTrainings
+                          ? AppColors.gray200
+                          : AppColors.gray100,
                     ),
                   ),
                 ),
@@ -399,8 +599,13 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
           if (isToday) _buildCurrentTimeIndicator(now),
 
           // Bloques de entrenamiento
-          ...dayTrainings.map((training) {
-            return _buildTrainingBlock(training);
+          ...trainingsWithColumns.map((item) {
+            return _buildTrainingBlock(
+              item.training,
+              columnIndex: item.column,
+              totalColumns: totalColumns,
+              columnWidth: dayWidth / totalColumns,
+            );
           }),
         ],
       ),
@@ -440,7 +645,12 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buildTrainingBlock(Map<String, dynamic> training) {
+  Widget _buildTrainingBlock(
+    Map<String, dynamic> training, {
+    required int columnIndex,
+    required int totalColumns,
+    required double columnWidth,
+  }) {
     final hinicio = training['hinicio']?.toString() ?? '';
     final hfin = training['hfin']?.toString() ?? '';
     final idequipo = training['idequipo'] as int?;
@@ -458,15 +668,20 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
     }
 
     final top = _calculateTop(startMinutes);
-    final height = _calculateHeight(startMinutes, endMinutes).clamp(30.0, 200.0);
+    final height = _calculateHeight(startMinutes, endMinutes).clamp(40.0, 200.0);
     final color = _getTeamColor(idequipo);
     final teamName = _getTeamShortName(idequipo);
     final campo = training['campo']?.toString() ?? '';
 
+    // Posición horizontal: cada entrenamiento en su columna asignada
+    const gap = 2.0;
+    final left = columnIndex * columnWidth + gap / 2;
+    final width = columnWidth - gap;
+
     return Positioned(
       top: top,
-      left: 2,
-      right: 2,
+      left: left,
+      width: width.clamp(50.0, 200.0),
       child: GestureDetector(
         onTap: () => onTrainingTap(training),
         child: Container(
@@ -489,33 +704,38 @@ class TrainingsWeeklyCalendar extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Hora
               Text(
                 '$hinicio - $hfin',
-                style: AppTypography.caption.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
+                style: const TextStyle(
+                  color: Colors.white,
                   fontSize: 10,
+                  fontWeight: FontWeight.w500,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               // Nombre del equipo
               Expanded(
                 child: Text(
                   teamName,
-                  style: AppTypography.labelSmall.copyWith(
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               // Campo (si hay espacio)
-              if (height > 50 && campo.isNotEmpty)
+              if (height > 60 && campo.isNotEmpty)
                 Text(
                   campo,
-                  style: AppTypography.caption.copyWith(
+                  style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 9,
                   ),

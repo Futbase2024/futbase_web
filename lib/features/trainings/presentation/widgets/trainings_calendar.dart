@@ -10,12 +10,14 @@ class TrainingsCalendar extends StatelessWidget {
     required this.onTrainingTap,
     required this.onDateSelected,
     this.selectedDate,
+    this.attendanceByTeam,
   });
 
   final List<Map<String, dynamic>> trainings;
   final void Function(Map<String, dynamic>) onTrainingTap;
   final void Function(DateTime) onDateSelected;
   final DateTime? selectedDate;
+  final Map<int, double>? attendanceByTeam;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +76,7 @@ class TrainingsCalendar extends StatelessWidget {
         border: Border.all(color: AppColors.gray100),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header del calendario
           _buildCalendarHeader(currentMonth),
@@ -81,8 +84,35 @@ class TrainingsCalendar extends StatelessWidget {
           // Nombres de días de la semana
           _buildWeekdayHeaders(),
 
-          // Grid de días
-          _buildDaysGrid(days, now),
+          // Grid de días - se expande para llenar el espacio disponible
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: List.generate(6, (rowIndex) {
+                  final startIdx = rowIndex * 7;
+                  final weekDays = days.sublist(startIdx, startIdx + 7);
+                  return Expanded(
+                    child: Row(
+                      children: weekDays.asMap().entries.map((entry) {
+                        final colIndex = entry.key;
+                        final day = entry.value;
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: colIndex < 6 ? 4 : 0,
+                              bottom: rowIndex < 5 ? 4 : 0,
+                            ),
+                            child: _buildDayCell(day, now, context),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -95,7 +125,7 @@ class TrainingsCalendar extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.05),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -153,27 +183,6 @@ class TrainingsCalendar extends StatelessWidget {
         }).toList(),
       ),
     );
-  }
-
-  Widget _buildDaysGrid(List<_CalendarDay> days, DateTime now) {
-    return Builder(builder: (gridContext) {
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 7,
-          childAspectRatio: 1.0,
-          mainAxisSpacing: 4,
-          crossAxisSpacing: 4,
-        ),
-        itemCount: days.length,
-        itemBuilder: (context, index) {
-          final day = days[index];
-          return _buildDayCell(day, now, gridContext);
-        },
-      );
-    });
   }
 
   Widget _buildDayCell(_CalendarDay day, DateTime now, BuildContext context) {
@@ -241,42 +250,168 @@ class TrainingsCalendar extends StatelessWidget {
   }
 
   void _showTrainingsForDay(BuildContext context, _CalendarDay day) {
+    final dayName = _getDayName(day.date.weekday);
+    final formattedDate = '$dayName, ${day.date.day} de ${_getMonthName(day.date.month)} ${day.date.year}';
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Entrenamientos del ${day.date.day}/${day.date.month}/${day.date.year}',
-          style: AppTypography.h6,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        content: SizedBox(
-          width: 400,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: day.trainings.length,
-            itemBuilder: (context, index) {
-              final training = day.trainings[index];
-              return ListTile(
-                leading: const Icon(Icons.fitness_center, color: AppColors.primary),
-                title: Text(training['nombre']?.toString() ?? 'Sin título'),
-                subtitle: Text(
-                  '${training['hinicio']?.toString() ?? ''} - ${training['hfin']?.toString() ?? ''}',
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header del diálogo
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.gray200),
+                  ),
                 ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onTrainingTap(training);
-                },
-              );
-            },
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_today,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Entrenamientos del día',
+                            style: AppTypography.h5.copyWith(
+                              color: AppColors.gray900,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            formattedDate,
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.gray600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${day.trainings.length}',
+                        style: AppTypography.labelMedium.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const Icon(Icons.close),
+                      color: AppColors.gray500,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Grid de entrenamientos
+              Flexible(
+                child: GridView.builder(
+                  padding: const EdgeInsets.all(20),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 320,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 1.4,
+                  ),
+                  itemCount: day.trainings.length,
+                  itemBuilder: (context, index) {
+                    final training = day.trainings[index];
+                    final idequipo = training['idequipo'] as int?;
+                    final asistencia = attendanceByTeam != null && idequipo != null
+                        ? attendanceByTeam![idequipo]
+                        : null;
+                    return _TrainingCard(
+                      training: training,
+                      asistenciaEquipo: asistencia,
+                      onTap: () {
+                        Navigator.of(dialogContext).pop();
+                        onTrainingTap(training);
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              // Botón cerrar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.gray50,
+                  border: Border(
+                    top: BorderSide(color: AppColors.gray200),
+                  ),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('Cerrar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.gray200,
+                      foregroundColor: AppColors.gray700,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cerrar'),
-          ),
-        ],
       ),
     );
+  }
+
+  String _getDayName(int weekday) {
+    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    return days[weekday - 1];
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return months[month - 1];
   }
 
   List<Map<String, dynamic>> _getTrainingsForDate(DateTime date) {
@@ -308,4 +443,173 @@ class _CalendarDay {
   final DateTime date;
   final bool isCurrentMonth;
   final List<Map<String, dynamic>> trainings;
+}
+
+/// Tarjeta de entrenamiento elegante y minimalista
+class _TrainingCard extends StatelessWidget {
+  const _TrainingCard({
+    required this.training,
+    required this.onTap,
+    this.asistenciaEquipo,
+  });
+
+  final Map<String, dynamic> training;
+  final VoidCallback onTap;
+  final double? asistenciaEquipo;
+
+  @override
+  Widget build(BuildContext context) {
+    final equipo = training['nombre_equipo']?.toString() ?? 'Sin equipo';
+    final hinicio = training['hinicio']?.toString() ?? '--:--';
+    final hfin = training['hfin']?.toString() ?? '--:--';
+    final asistenciaPorcentaje = asistenciaEquipo != null ? (asistenciaEquipo! * 100).round() : null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                AppColors.gray50.withValues(alpha: 0.5),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.gray200.withValues(alpha: 0.8)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hora destacada
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.access_time_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$hinicio - $hfin',
+                            style: AppTypography.labelLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const Spacer(),
+
+                // Equipo
+                Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 20,
+                      color: AppColors.primary.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        equipo,
+                        style: AppTypography.bodyLarge.copyWith(
+                          color: AppColors.gray800,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const Spacer(),
+
+                // Asistencia
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Asistencia',
+                            style: AppTypography.labelSmall.copyWith(
+                              color: AppColors.gray500,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (asistenciaPorcentaje ?? 0) / 100,
+                              backgroundColor: AppColors.gray200,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                _getAssistenciaColor(asistenciaPorcentaje),
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _getAssistenciaColor(asistenciaPorcentaje).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${asistenciaPorcentaje ?? '--'}%',
+                        style: AppTypography.labelLarge.copyWith(
+                          color: _getAssistenciaColor(asistenciaPorcentaje),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getAssistenciaColor(int? porcentaje) {
+    if (porcentaje == null) return AppColors.gray400;
+    if (porcentaje >= 70) return AppColors.green; // Verde primary oscuro #00554E
+    if (porcentaje >= 50) return AppColors.warning;
+    return AppColors.error;
+  }
 }

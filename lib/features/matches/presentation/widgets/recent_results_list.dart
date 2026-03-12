@@ -224,7 +224,7 @@ class _ScoreCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           local
-                              ? (match['ncortoclub']?.toString() ?? 'Mi Equipo')
+                              ? (match['ncortoequipo']?.toString() ?? match['equipo']?.toString() ?? 'Mi Equipo')
                               : rival,
                           style: AppTypography.labelSmall.copyWith(
                             color: AppColors.primary,
@@ -284,7 +284,7 @@ class _ScoreCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           !local
-                              ? (match['ncortoclub']?.toString() ?? 'Mi Equipo')
+                              ? (match['ncortoequipo']?.toString() ?? match['equipo']?.toString() ?? 'Mi Equipo')
                               : rival,
                           style: AppTypography.labelSmall.copyWith(
                             color: AppColors.primary,

@@ -11,21 +11,29 @@ abstract class TeamsEvent extends Equatable {
 /// Evento para cargar equipos de un club
 class TeamsLoadRequested extends TeamsEvent {
   final int idclub;
+  final int activeSeasonId;
 
-  const TeamsLoadRequested({required this.idclub});
+  const TeamsLoadRequested({
+    required this.idclub,
+    required this.activeSeasonId,
+  });
 
   @override
-  List<Object?> get props => [idclub];
+  List<Object?> get props => [idclub, activeSeasonId];
 }
 
 /// Evento para refrescar la lista de equipos
 class TeamsRefreshRequested extends TeamsEvent {
   final int idclub;
+  final int activeSeasonId;
 
-  const TeamsRefreshRequested({required this.idclub});
+  const TeamsRefreshRequested({
+    required this.idclub,
+    required this.activeSeasonId,
+  });
 
   @override
-  List<Object?> get props => [idclub];
+  List<Object?> get props => [idclub, activeSeasonId];
 }
 
 /// Evento para buscar equipos por nombre

@@ -215,6 +215,16 @@ class MatchesError extends MatchesState {
   List<Object?> get props => [message];
 }
 
+/// Estado para usuarios sin equipo asignado (club/coordinador)
+class MatchesNoTeam extends MatchesState {
+  final String? message;
+
+  const MatchesNoTeam({this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
 /// Estado para gestión de alineación
 class LineupState extends MatchesState {
   final int idpartido;
