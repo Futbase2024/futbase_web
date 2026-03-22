@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import 'match_result_badge.dart';
 
 // Note: DataTable2, DataColumn2, DataRow2, ColumnSize are defined at the end of this file
 
@@ -193,7 +194,6 @@ class MatchesTable extends StatelessWidget {
   }
 
   Widget _buildResultCell(Map<String, dynamic> match) {
-    // Campos de vpartido: goles (nuestros), golesrival (del rival), finalizado
     final goles = _toInt(match['goles']);
     final golesrival = _toInt(match['golesrival']);
     final finalizado = match['finalizado'] == 1 || match['finalizado'] == true;
@@ -207,34 +207,7 @@ class MatchesTable extends StatelessWidget {
       );
     }
 
-    // goles = nuestros goles, golesrival = goles del rival
-    final nuestrosGoles = goles;
-    final susGoles = golesrival;
-    final resultado = '$goles - $golesrival';
-
-    Color resultColor;
-    if (nuestrosGoles > susGoles) {
-      resultColor = AppColors.success;
-    } else if (nuestrosGoles < susGoles) {
-      resultColor = AppColors.error;
-    } else {
-      resultColor = AppColors.warning;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: resultColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        resultado,
-        style: AppTypography.labelMedium.copyWith(
-          color: resultColor,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
+    return MatchResultBadge(goles: goles, golesrival: golesrival);
   }
 
   int? _toInt(dynamic value) {

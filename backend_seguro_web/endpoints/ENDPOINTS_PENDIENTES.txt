@@ -1,0 +1,34 @@
+# Endpoints con estructura problemática (ob_start)
+
+## ✅ CORREGIDOS:
+- usuarios.php ✅
+- cuotas_club.php ✅
+- pagos_personal.php ✅
+- partidos_jugador.php ✅ (corregida vista SQL)
+- camisetas.php ✅
+
+## ⏳ PENDIENTES (por prioridad):
+
+### Alta prioridad (probablemente se usan):
+- entrenamientos.php
+- entrenos_jugadores.php
+- partidos.php
+- lesiones.php
+- estadisticas_jugadores.php
+- estadisticas_partido.php
+- eventos_partido.php
+
+### Media prioridad:
+- gastos.php
+- ingresos.php
+- contabilidad.php
+- cuotas.php (diferente a cuotas_club)
+- documentos.php
+- mensajeria.php
+
+### Baja prioridad:
+- app_config.php
+- preferences.php
+- prendas.php
+- publicidad.php
+- talla_peso.php

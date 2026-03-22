@@ -15,6 +15,7 @@ import '../../../results/presentation/widgets/results_content.dart';
 import '../../../scouting/presentation/pages/scouting_page.dart';
 import '../../../season/presentation/widgets/season_content.dart';
 import '../../../reports/presentation/widgets/reports_content.dart';
+import '../../../fees/presentation/widgets/fees_content.dart';
 
 /// Página principal del Dashboard
 ///
@@ -227,6 +228,11 @@ class _DashboardPageState extends State<DashboardPage> {
       return ReportsContent(user: user, userRole: role ?? UserRole.entrenador);
     }
 
+    // Si es fees, mostrar contenido de cuotas
+    if (_selectedNavItem == 'fees') {
+      return FeesContent(user: user);
+    }
+
     // Si no está en dashboard, mostrar placeholder
     if (_selectedNavItem != 'dashboard') {
       return _buildPlaceholderContent();
@@ -237,14 +243,14 @@ class _DashboardPageState extends State<DashboardPage> {
       case UserRole.superAdmin:
         return const SuperAdminDashboard();
       case UserRole.club:
-        return ClubDashboard(user: user);
+        return ClubDashboard(user: user, idTemporada: idTemporada);
       case UserRole.coordinador:
-        return CoordinadorDashboard(user: user);
+        return CoordinadorDashboard(user: user, idTemporada: idTemporada);
       case UserRole.entrenador:
-        return EntrenadorDashboard(user: user);
+        return EntrenadorDashboard(user: user, idTemporada: idTemporada);
       default:
         // Fallback al dashboard de entrenador para roles desconocidos
-        return EntrenadorDashboard(user: user);
+        return EntrenadorDashboard(user: user, idTemporada: idTemporada);
     }
   }
 

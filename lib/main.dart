@@ -4,16 +4,31 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'core/config/supabase_config.dart';
 import 'core/config/app_config_cubit.dart';
+import 'core/config/app_config.dart';
+import 'core/config/firebase_config.dart';
+import 'firebase_options.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar Firebase (solo si useBackendSeguro está activo)
+  if (AppConfig.useBackendSeguro) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await FirebaseConfig.initialize();
+  }
+
+  // Inicializar Supabase (mantener para transición o uso paralelo)
   await SupabaseConfig.initialize();
+
   await initializeDateFormatting('es', null);
   runApp(const MyApp());
 }

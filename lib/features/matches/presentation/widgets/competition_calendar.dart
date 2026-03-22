@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import 'match_result_badge.dart';
 
 /// Calendario de competición con próximos partidos
 class CompetitionCalendar extends StatelessWidget {
@@ -81,86 +82,13 @@ class CompetitionCalendar extends StatelessWidget {
               child: Column(
                 children: [
                   // Header de la tabla
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.gray50,
-                      border: Border(
-                        bottom: BorderSide(color: AppColors.gray100),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        // C/F
-                        SizedBox(
-                          width: 50,
-                          child: Text(
-                            'C/F',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // Rival
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'RIVAL',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // Competición
-                        SizedBox(
-                          width: 80,
-                          child: Text(
-                            'COMP.',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // Fecha / Estadio
-                        Expanded(
-                          flex: 4,
-                          child: Text(
-                            'FECHA / ESTADIO',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // Acciones
-                        SizedBox(
-                          width: 80,
-                          child: Text(
-                            'ACCIONES',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: AppColors.gray600,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
+                  _buildTableHeader(),
                   // Filas de partidos
-                  ...matches.asMap().entries.map((entry) {
-                    final match = entry.value;
-
-                    return _CalendarRow(
-                      match: match,
-                      onEdit: () => onEdit(match),
-                      onLineup: () => onLineup(match),
-                    );
-                  }),
+                  ...matches.map((match) => _CalendarRow(
+                    match: match,
+                    onEdit: () => onEdit(match),
+                    onLineup: () => onLineup(match),
+                  )),
                 ],
               ),
             ),
@@ -168,6 +96,40 @@ class CompetitionCalendar extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.gray50,
+        border: Border(
+          bottom: BorderSide(color: AppColors.gray100),
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: 50, child: Text('C/F', style: _headerStyle)),
+          Expanded(flex: 3, child: Text('RIVAL', style: _headerStyle)),
+          SizedBox(width: 80, child: Text('COMP.', style: _headerStyle)),
+          Expanded(flex: 4, child: Text('FECHA / ESTADIO', style: _headerStyle)),
+          SizedBox(width: 90, child: Text('RESULTADO', style: _headerStyle)),
+          SizedBox(
+            width: 80,
+            child: Text(
+              'ACCIONES',
+              style: _headerStyle,
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TextStyle get _headerStyle => AppTypography.labelSmall.copyWith(
+    color: AppColors.gray600,
+    fontWeight: FontWeight.w600,
+  );
 
   Widget _buildEmptyState() {
     return Container(
@@ -180,18 +142,9 @@ class CompetitionCalendar extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.event_available_outlined,
-              size: 48,
-              color: AppColors.gray300,
-            ),
+            Icon(Icons.event_available_outlined, size: 48, color: AppColors.gray300),
             AppSpacing.vSpaceMd,
-            Text(
-              'No hay partidos programados',
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.gray500,
-              ),
-            ),
+            Text('No hay partidos programados', style: AppTypography.bodyMedium.copyWith(color: AppColors.gray500)),
           ],
         ),
       ),
@@ -199,6 +152,7 @@ class CompetitionCalendar extends StatelessWidget {
   }
 }
 
+/// Fila de partido en el calendario
 class _CalendarRow extends StatelessWidget {
   const _CalendarRow({
     required this.match,
@@ -220,23 +174,19 @@ class _CalendarRow extends StatelessWidget {
     final jcorta = match['jcorta']?.toString();
     final campo = match['campo']?.toString();
     final finalizado = match['finalizado'] == 1 || match['finalizado'] == true;
-
-    // Determinar tipo de competición y texto a mostrar
+    final goles = _toInt(match['goles']);
+    final golesrival = _toInt(match['golesrival']);
     final esLiga = idjornada != null;
-    final competicionText = esLiga
-        ? (jcorta ?? 'LIGA')
-        : 'AMISTOSO';
+    final competicionText = esLiga ? (jcorta ?? 'LIGA') : 'AMISTOSO';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.gray100),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.gray100)),
       ),
       child: Row(
         children: [
-          // C/F - Icono de casa o fuera
+          // C/F
           SizedBox(
             width: 50,
             child: Icon(
@@ -315,9 +265,7 @@ class _CalendarRow extends StatelessWidget {
                     Flexible(
                       child: Text(
                         campo ?? 'Por definir',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.gray500,
-                        ),
+                        style: AppTypography.caption.copyWith(color: AppColors.gray500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -326,6 +274,14 @@ class _CalendarRow extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+
+          // Resultado
+          SizedBox(
+            width: 90,
+            child: finalizado && goles != null && golesrival != null
+                ? MatchResultBadge(goles: goles, golesrival: golesrival)
+                : const SizedBox.shrink(),
           ),
 
           // Acciones
@@ -368,5 +324,11 @@ class _CalendarRow extends StatelessWidget {
   DateTime? _parseDate(dynamic dateValue) {
     if (dateValue == null) return null;
     return DateTime.tryParse(dateValue.toString());
+  }
+
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
   }
 }

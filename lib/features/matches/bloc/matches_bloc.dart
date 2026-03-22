@@ -1,16 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:futbase_web_3/core/datasources/datasource_factory.dart';
+import 'package:futbase_web_3/core/datasources/app_datasource.dart';
 
 import 'matches_event.dart';
 import 'matches_state.dart';
 
 /// BLoC para gestión de partidos
 class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
-  final SupabaseClient _supabase;
+  final AppDataSource _dataSource;
 
-  MatchesBloc({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client,
+  MatchesBloc({AppDataSource? dataSource})
+      : _dataSource = dataSource ?? DataSourceFactory.instance,
         super(const MatchesInitial()) {
     on<MatchesLoadRequested>(_onLoadRequested);
     on<MatchesLoadByClubRequested>(_onLoadByClubRequested);
@@ -40,55 +42,13 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     debugPrint('⚽ [MatchesBloc] Cargando partidos (idequipo=${event.idequipo}, idTemporada=${event.idTemporada})');
     emit(const MatchesLoading());
 
-    try {
-      // Cargar TODOS los partidos del equipo de la temporada actual desde la vista vpartido
-      // La vista incluye información enriquecida: jornada, categoria, campo, hora, escudos, etc.
-      final matchesData = await _supabase
-          .from('vpartido')
-          .select('''
-            id,
-            idjornada,
-            idtemporada,
-            idcategoria,
-            idequipo,
-            idclub,
-            idrival,
-            idclubrival,
-            rival,
-            ncortorival,
-            ncortoclubrival,
-            fecha,
-            hora,
-            horaconvocatoria,
-            casafuera,
-            goles,
-            golesrival,
-            finalizado,
-            minuto,
-            jornada,
-            jcorta,
-            temporada,
-            categoria,
-            club,
-            escudo,
-            ncortoclub,
-            equipo,
-            ncortoequipo,
-            campo,
-            escudorival,
-            observaciones,
-            obsconvocatoria,
-            sistema,
-            titulares,
-            clubequipo,
-            camiseta,
-            camisetapor
-          ''')
-          .eq('idequipo', event.idequipo)
-          .eq('idtemporada', event.idTemporada)
-          .order('fecha', ascending: false);
+    final response = await _dataSource.getPartidos(
+      idequipo: event.idequipo,
+      idtemporada: event.idTemporada,
+    );
 
-      final matches = (matchesData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+    if (response.success && response.data != null) {
+      final matches = response.data!;
 
       // Extraer competiciones únicas (usamos jornada como identificador de competición)
       final competitions = <int, String>{};
@@ -106,9 +66,9 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         filteredMatches: matches,
         competitions: competitions,
       ));
-    } catch (e) {
-      debugPrint('⚽ [MatchesBloc] Error: $e');
-      emit(MatchesError(message: e.toString()));
+    } else {
+      debugPrint('⚽ [MatchesBloc] Error: ${response.message}');
+      emit(MatchesError(message: response.message ?? 'Error al cargar partidos'));
     }
   }
 
@@ -120,75 +80,13 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     debugPrint('⚽ [MatchesBloc] Cargando partidos del club (idclub=${event.idclub}, idTemporada=${event.idTemporada})');
     emit(const MatchesLoading());
 
-    try {
-      // Primero obtener los IDs de equipos del club
-      final equiposData = await _supabase
-          .from('vequipos')
-          .select('id')
-          .eq('idclub', event.idclub)
-          .eq('idtemporada', event.idTemporada);
+    final response = await _dataSource.getPartidosByClub(
+      idclub: event.idclub,
+      idtemporada: event.idTemporada,
+    );
 
-      final equipoIds = (equiposData as List)
-          .map((e) => e['id'] as int)
-          .toList();
-
-      if (equipoIds.isEmpty) {
-        debugPrint('⚽ [MatchesBloc] No hay equipos para este club');
-        emit(MatchesLoaded(
-          matches: [],
-          filteredMatches: [],
-          competitions: {},
-        ));
-        return;
-      }
-
-      // Cargar TODOS los partidos de los equipos del club
-      final matchesData = await _supabase
-          .from('vpartido')
-          .select('''
-            id,
-            idjornada,
-            idtemporada,
-            idcategoria,
-            idequipo,
-            idclub,
-            idrival,
-            idclubrival,
-            rival,
-            ncortorival,
-            ncortoclubrival,
-            fecha,
-            hora,
-            horaconvocatoria,
-            casafuera,
-            goles,
-            golesrival,
-            finalizado,
-            minuto,
-            jornada,
-            jcorta,
-            temporada,
-            categoria,
-            club,
-            escudo,
-            ncortoclub,
-            equipo,
-            ncortoequipo,
-            campo,
-            escudorival,
-            observaciones,
-            obsconvocatoria,
-            sistema,
-            titulares,
-            clubequipo,
-            camiseta,
-            camisetapor
-          ''')
-          .inFilter('idequipo', equipoIds)
-          .eq('idtemporada', event.idTemporada)
-          .order('fecha', ascending: false);
-
-      final matches = (matchesData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+    if (response.success && response.data != null) {
+      final matches = response.data!;
 
       // Extraer competiciones únicas
       final competitions = <int, String>{};
@@ -206,9 +104,9 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         filteredMatches: matches,
         competitions: competitions,
       ));
-    } catch (e) {
-      debugPrint('⚽ [MatchesBloc] Error al cargar partidos del club: $e');
-      emit(MatchesError(message: e.toString()));
+    } else {
+      debugPrint('⚽ [MatchesBloc] Error al cargar partidos del club: ${response.message}');
+      emit(MatchesError(message: response.message ?? 'Error al cargar partidos'));
     }
   }
 
@@ -230,54 +128,13 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       currentVenue = currentState.filterByVenue;
     }
 
-    try {
-      // Cargar TODOS los partidos desde la vista vpartido
-      final matchesData = await _supabase
-          .from('vpartido')
-          .select('''
-            id,
-            idjornada,
-            idtemporada,
-            idcategoria,
-            idequipo,
-            idclub,
-            idrival,
-            idclubrival,
-            rival,
-            ncortorival,
-            ncortoclubrival,
-            fecha,
-            hora,
-            horaconvocatoria,
-            casafuera,
-            goles,
-            golesrival,
-            finalizado,
-            minuto,
-            jornada,
-            jcorta,
-            temporada,
-            categoria,
-            club,
-            escudo,
-            ncortoclub,
-            equipo,
-            ncortoequipo,
-            campo,
-            escudorival,
-            observaciones,
-            obsconvocatoria,
-            sistema,
-            titulares,
-            clubequipo,
-            camiseta,
-            camisetapor
-          ''')
-          .eq('idequipo', event.idequipo)
-          .eq('idtemporada', event.idTemporada)
-          .order('fecha', ascending: false);
+    final response = await _dataSource.getPartidos(
+      idequipo: event.idequipo,
+      idtemporada: event.idTemporada,
+    );
 
-      var matches = (matchesData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+    if (response.success && response.data != null) {
+      var matches = response.data!;
       var filteredMatches = matches;
 
       // Extraer competiciones únicas
@@ -310,8 +167,8 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         filterByCompetition: currentCompetition,
         filterByVenue: currentVenue,
       ));
-    } catch (e) {
-      emit(MatchesError(message: e.toString()));
+    } else {
+      emit(MatchesError(message: response.message ?? 'Error al refrescar'));
     }
   }
 
@@ -422,24 +279,23 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     MatchCreateRequested event,
     Emitter<MatchesState> emit,
   ) async {
-    try {
-      await _supabase.from('tpartidos').insert({
-        'idequipo': event.idequipo,
-        'idtemporada': event.idTemporada,
-        'fecha': event.fecha.toIso8601String().split('T')[0],
-        'rival': event.rival,
-        'casafuera': event.local ? 0 : 1, // 0 = local, 1 = visitante
-        'finalizado': 0,
-      });
+    final response = await _dataSource.createPartido(
+      idequipo: event.idequipo,
+      idtemporada: event.idTemporada,
+      fecha: event.fecha,
+      rival: event.rival,
+      local: event.local,
+    );
 
+    if (response.success) {
       debugPrint('⚽ [MatchesBloc] Partido creado correctamente');
       add(MatchesLoadRequested(
         idequipo: event.idequipo,
         idTemporada: event.idTemporada,
       ));
-    } catch (e) {
-      debugPrint('⚽ [MatchesBloc] Error al crear: $e');
-      emit(MatchesError(message: 'Error al crear partido: $e'));
+    } else {
+      debugPrint('⚽ [MatchesBloc] Error al crear: ${response.message}');
+      emit(MatchesError(message: 'Error al crear partido: ${response.message}'));
     }
   }
 
@@ -448,28 +304,27 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     MatchUpdateRequested event,
     Emitter<MatchesState> emit,
   ) async {
-    try {
-      await _supabase
-          .from('tpartidos')
-          .update({
-            'idtemporada': event.idTemporada,
-            'fecha': event.fecha.toIso8601String().split('T')[0],
-            'rival': event.rival,
-            'casafuera': event.local ? 0 : 1,
-            'goles': event.golesLocal,
-            'golesrival': event.golesVisitante,
-            'finalizado': event.finalizado ? 1 : 0,
-          })
-          .eq('id', event.id);
+    final response = await _dataSource.updatePartido(
+      id: event.id,
+      idequipo: event.idequipo,
+      idtemporada: event.idTemporada,
+      fecha: event.fecha,
+      rival: event.rival,
+      local: event.local,
+      golesLocal: event.golesLocal,
+      golesVisitante: event.golesVisitante,
+      finalizado: event.finalizado,
+    );
 
+    if (response.success) {
       debugPrint('⚽ [MatchesBloc] Partido actualizado correctamente');
       add(MatchesLoadRequested(
         idequipo: event.idequipo,
         idTemporada: event.idTemporada,
       ));
-    } catch (e) {
-      debugPrint('⚽ [MatchesBloc] Error al actualizar: $e');
-      emit(MatchesError(message: 'Error al actualizar partido: $e'));
+    } else {
+      debugPrint('⚽ [MatchesBloc] Error al actualizar: ${response.message}');
+      emit(MatchesError(message: 'Error al actualizar partido: ${response.message}'));
     }
   }
 
@@ -478,20 +333,17 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     MatchDeleteRequested event,
     Emitter<MatchesState> emit,
   ) async {
-    try {
-      await _supabase
-          .from('tpartidos')
-          .delete()
-          .eq('id', event.id);
+    final response = await _dataSource.deletePartido(id: event.id);
 
+    if (response.success) {
       debugPrint('⚽ [MatchesBloc] Partido eliminado correctamente');
       add(MatchesLoadRequested(
         idequipo: event.idequipo,
         idTemporada: event.idTemporada,
       ));
-    } catch (e) {
-      debugPrint('⚽ [MatchesBloc] Error al eliminar: $e');
-      emit(MatchesError(message: 'Error al eliminar partido: $e'));
+    } else {
+      debugPrint('⚽ [MatchesBloc] Error al eliminar: ${response.message}');
+      emit(MatchesError(message: 'Error al eliminar partido: ${response.message}'));
     }
   }
 
@@ -504,59 +356,24 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       debugPrint('⚽ [MatchesBloc] Cargando alineación (idpartido=${event.idpartido})');
 
       // Cargar camisetas del partido
+      final camisetasResponse = await _dataSource.getPartidoCamisetas(idpartido: event.idpartido);
       String? camisetaUrl;
       String? camisetaPorteroUrl;
       int dorsalColor = 0;
 
-      final partidoData = await _supabase
-          .from('tpartidos')
-          .select('camiseta, camisetapor')
-          .eq('id', event.idpartido)
-          .maybeSingle();
-
-      if (partidoData != null) {
-        final camisetaId = partidoData['camiseta'] as int?;
-        final camisetaporId = partidoData['camisetapor'] as int?;
-
-        // Cargar URLs de camisetas desde tcamisetas
-        if (camisetaId != null || camisetaporId != null) {
-          final camisetaIds = [camisetaId, camisetaporId].whereType<int>().toList();
-          if (camisetaIds.isNotEmpty) {
-            final camisetasData = await _supabase
-                .from('tcamisetas')
-                .select('id, url, idcolor')
-                .inFilter('id', camisetaIds);
-
-            for (final cam in camisetasData as List) {
-              final id = cam['id'] as int;
-              final url = cam['url'] as String?;
-              final color = cam['idcolor'] as int? ?? 0;
-
-              if (id == camisetaId) {
-                camisetaUrl = url;
-                dorsalColor = color;
-              }
-              if (id == camisetaporId) {
-                camisetaPorteroUrl = url;
-              }
-            }
-          }
-        }
+      if (camisetasResponse.success && camisetasResponse.data != null) {
+        camisetaUrl = camisetasResponse.data!['camisetaUrl'] as String?;
+        camisetaPorteroUrl = camisetasResponse.data!['camisetaPorteroUrl'] as String?;
+        dorsalColor = camisetasResponse.data!['dorsalColor'] as int? ?? 0;
       }
 
       debugPrint('⚽ [MatchesBloc] Camiseta: $camisetaUrl, Portero: $camisetaPorteroUrl, Color dorsal: $dorsalColor');
 
       // Cargar TODOS los jugadores convocados para este partido
-      // No filtramos por idequipo para incluir jugadores de cualquier equipo
-      final lineupResponse = await _supabase
-          .from('vpartidosjugadores')
-          .select('idjugador, titular, mentra, apodo, dorsal, posicion, foto, convocado, posx, posy')
-          .eq('idpartido', event.idpartido)
-          .eq('convocado', 1) // Solo convocados
-          .order('dorsal');
+      final lineupResponse = await _dataSource.getLineup(idpartido: event.idpartido);
 
       // Si no hay convocatoria, mostrar lista vacía (hay que convocar primero)
-      if ((lineupResponse as List).isEmpty) {
+      if (!lineupResponse.success || lineupResponse.data == null || lineupResponse.data!.isEmpty) {
         debugPrint('⚽ [MatchesBloc] No hay jugadores convocados para este partido');
         emit(LineupState(
           idpartido: event.idpartido,
@@ -571,8 +388,10 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         return;
       }
 
+      final lineupData = lineupResponse.data!;
+
       // Usar datos de la vista vpartidosjugadores
-      final players = lineupResponse.map((item) => {
+      final players = lineupData.map((item) => {
         'id': item['idjugador'],
         'nombre': item['apodo'] ?? '',
         'apellidos': '',
@@ -597,7 +416,7 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
         posY[id] = null;
       }
 
-      for (final line in lineupResponse) {
+      for (final line in lineupData) {
         final idJugador = line['idjugador'] as int;
         lineup[idJugador] = (line['titular'] as int?) == 1;
         minutosEntrada[idJugador] = line['mentra'] as int?;
@@ -612,7 +431,7 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       // 📍 LOG DETALLADO DE POSICIONES
       debugPrint('═══════════════════════════════════════════════════════════');
       debugPrint('📍 [MATCHES BLOC] POSICIONES CARGADAS DE BD (ya normalizadas 0-1):');
-      for (final line in lineupResponse) {
+      for (final line in lineupData) {
         final id = line['idjugador'] as int;
         final nombre = players.firstWhere((p) => p['id'] == id, orElse: () => <String, dynamic>{})['nombre'] ?? '?';
         final esTitular = lineup[id] == true;
@@ -678,36 +497,38 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
 
     emit(currentState.copyWith(isSaving: true));
 
-    try {
-      // Eliminar convocatoria anterior de este partido
-      await _supabase
-          .from('tconvpartidos')
-          .delete()
-          .eq('idpartido', event.idpartido);
+    // Eliminar convocatoria anterior
+    await _dataSource.deleteConvocatoria(idpartido: event.idpartido);
 
-      // Insertar nueva convocatoria/alineación con posiciones
-      final inserts = <Map<String, dynamic>>[];
-      for (final entry in event.lineup.entries) {
-        inserts.add({
-          'idpartido': event.idpartido,
-          'idjugador': entry.key,
-          'titular': entry.value ? 1 : 0,
-          'convocado': 1,
-          'mentra': event.minutosEntrada[entry.key],
-          'posx': event.posX[entry.key],
-          'posy': event.posY[entry.key],
-        });
+    // Preparar inserts
+    final inserts = <Map<String, dynamic>>[];
+    for (final entry in event.lineup.entries) {
+      inserts.add({
+        'idpartido': event.idpartido,
+        'idjugador': entry.key,
+        'titular': entry.value ? 1 : 0,
+        'convocado': 1,
+        'mentra': event.minutosEntrada[entry.key],
+        'posx': event.posX[entry.key],
+        'posy': event.posY[entry.key],
+      });
+    }
+
+    if (inserts.isNotEmpty) {
+      final response = await _dataSource.saveLineup(
+        idpartido: event.idpartido,
+        lineup: inserts,
+      );
+
+      if (response.success) {
+        debugPrint('⚽ [MatchesBloc] Alineación guardada correctamente');
+        emit(currentState.copyWith(isSaving: false));
+      } else {
+        debugPrint('⚽ [MatchesBloc] Error al guardar alineación: ${response.message}');
+        emit(MatchesError(message: 'Error al guardar alineación: ${response.message}'));
       }
-
-      if (inserts.isNotEmpty) {
-        await _supabase.from('tconvpartidos').insert(inserts);
-      }
-
-      debugPrint('⚽ [MatchesBloc] Alineación guardada correctamente');
+    } else {
       emit(currentState.copyWith(isSaving: false));
-    } catch (e) {
-      debugPrint('⚽ [MatchesBloc] Error al guardar alineación: $e');
-      emit(MatchesError(message: 'Error al guardar alineación: $e'));
     }
   }
 
@@ -795,20 +616,26 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     final startTime = DateTime.now();
     debugPrint('⚽ [MatchesBloc] ⏱️ INICIO carga convocatoria (idclub=${event.idclub}, idTemporada=${event.idTemporada})');
 
-    try {
-      // Consulta simplificada usando la vista vjugadores
-      final queryStart = DateTime.now();
-      final jugadoresResponse = await _supabase
-          .from('vjugadores')
-          .select('id, idequipo, nombre, apellidos, apodo, dorsal, idposicion, posicion, foto, activo, equipo')
-          .eq('idclub', event.idclub)
-          .eq('idtemporada', event.idTemporada)
-          .eq('activo', 1)
-          .order('dorsal');
-      final queryDuration = DateTime.now().difference(queryStart).inMilliseconds;
-      debugPrint('⚽ [MatchesBloc] ⏱️ Query vjugadores: ${queryDuration}ms (${(jugadoresResponse as List).length} registros)');
+    emit(const MatchesLoading());
 
-      if (jugadoresResponse.isEmpty) {
+    try {
+      // Cargar jugadores del club
+      final jugadoresResponse = await _dataSource.getJugadoresByClub(
+        idclub: event.idclub,
+        idtemporada: event.idTemporada,
+        soloActivos: true,
+      );
+
+      if (!jugadoresResponse.success || jugadoresResponse.data == null) {
+        emit(MatchesError(message: jugadoresResponse.message ?? 'Error al cargar jugadores'));
+        return;
+      }
+
+      final jugadoresData = jugadoresResponse.data!;
+      final queryDuration = DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint('⚽ [MatchesBloc] ⏱️ Query vjugadores: ${queryDuration}ms (${jugadoresData.length} registros)');
+
+      if (jugadoresData.isEmpty) {
         debugPrint('⚽ [MatchesBloc] No hay jugadores en el club para esta temporada');
         emit(ConvocatoriaState(
           idpartido: event.idpartido,
@@ -826,7 +653,7 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       final clubPlayers = <Map<String, dynamic>>[];
       final equipos = <int, String>{};
 
-      for (final jugador in jugadoresResponse) {
+      for (final jugador in jugadoresData) {
         final idequipo = jugador['idequipo'] as int?;
         if (idequipo != null && !equipos.containsKey(idequipo)) {
           // Usar el nombre del equipo de la vista si está disponible
@@ -851,37 +678,33 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
       // Cargar nombres de equipos
       if (equipos.isNotEmpty) {
         final equiposStart = DateTime.now();
-        final equiposResponse = await _supabase
-            .from('tequipos')
-            .select('id, ncorto, equipo')
-            .inFilter('id', equipos.keys.toList());
+        final equiposResponse = await _dataSource.getEquiposInfo(ids: equipos.keys.toList());
 
-        for (final eq in equiposResponse as List<dynamic>) {
-          final id = eq['id'] as int;
-          equipos[id] = eq['ncorto']?.toString() ?? eq['equipo']?.toString() ?? 'Sin equipo';
+        if (equiposResponse.success && equiposResponse.data != null) {
+          for (final eq in equiposResponse.data!) {
+            final id = eq['id'] as int;
+            equipos[id] = eq['ncorto']?.toString() ?? eq['equipo']?.toString() ?? 'Sin equipo';
+          }
         }
         final equiposDuration = DateTime.now().difference(equiposStart).inMilliseconds;
         debugPrint('⚽ [MatchesBloc] ⏱️ Query equipos: ${equiposDuration}ms');
       }
 
-      // Cargar convocatoria existente para este partido desde tconvpartidos
-      // Leemos directamente de la tabla donde guardamos los cambios
+      // Cargar convocatoria existente para este partido
       final convStart = DateTime.now();
-      final convocatoriaExistente = await _supabase
-          .from('tconvpartidos')
-          .select('idjugador')
-          .eq('idpartido', event.idpartido)
-          .eq('convocado', 1);
+      final convocatoriaResponse = await _dataSource.getConvocatoria(idpartido: event.idpartido);
 
       final convocados = <int>{};
-      for (final conv in convocatoriaExistente as List<dynamic>) {
-        final idJugador = conv['idjugador'] as int?;
-        if (idJugador != null) {
-          convocados.add(idJugador);
+      if (convocatoriaResponse.success && convocatoriaResponse.data != null) {
+        for (final conv in convocatoriaResponse.data!) {
+          final idJugador = conv['idjugador'] as int?;
+          if (idJugador != null) {
+            convocados.add(idJugador);
+          }
         }
       }
       final convDuration = DateTime.now().difference(convStart).inMilliseconds;
-      debugPrint('⚽ [MatchesBloc] ⏱️ Query convocatoria (tconvpartidos convocado=1): ${convDuration}ms');
+      debugPrint('⚽ [MatchesBloc] ⏱️ Query convocatoria: ${convDuration}ms');
 
       final totalDuration = DateTime.now().difference(startTime).inMilliseconds;
       debugPrint('⚽ [MatchesBloc] ⏱️ FIN carga convocatoria: ${clubPlayers.length} jugadores, ${convocados.length} convocados | TOTAL: ${totalDuration}ms');
@@ -901,7 +724,7 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     }
   }
 
-  /// Toggle jugador convocado - usa upsert para insertar o actualizar en una sola operación
+  /// Toggle jugador convocado
   Future<void> _onConvocatoriaPlayerToggleRequested(
     ConvocatoriaPlayerToggleRequested event,
     Emitter<MatchesState> emit,
@@ -910,30 +733,30 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     if (currentState is! ConvocatoriaState) return;
 
     try {
-      // Upsert: inserta si no existe, actualiza si ya existe (por idpartido + idjugador)
-      // Una sola operación atómica en lugar de check + insert/update
-      await _supabase.from('tconvpartidos').upsert({
-        'idpartido': currentState.idpartido,
-        'idjugador': event.idjugador,
-        'idequipo': event.idequipo,
-        'idtemporada': currentState.idTemporada,
-        'convocado': event.convocado ? 1 : 0,
-      }, onConflict: 'idpartido,idjugador');
+      // Upsert usando el datasource
+      final response = await _dataSource.upsertConvocatoria(
+        idpartido: currentState.idpartido,
+        idjugador: event.idjugador,
+        idequipo: event.idequipo,
+        idtemporada: currentState.idTemporada,
+        convocado: event.convocado,
+      );
 
-      debugPrint('⚽ [MatchesBloc] Jugador ${event.idjugador} ${event.convocado ? 'CONVOCADO' : 'DESCONVOCADO'} en BD (UPSERT)');
+      if (response.success) {
+        debugPrint('⚽ [MatchesBloc] Jugador ${event.idjugador} ${event.convocado ? 'CONVOCADO' : 'DESCONVOCADO'} en BD (UPSERT)');
 
-      // Actualizar estado local
-      final newConvocados = Set<int>.from(currentState.convocados);
-      if (event.convocado) {
-        newConvocados.add(event.idjugador);
-      } else {
-        newConvocados.remove(event.idjugador);
+        // Actualizar estado local
+        final newConvocados = Set<int>.from(currentState.convocados);
+        if (event.convocado) {
+          newConvocados.add(event.idjugador);
+        } else {
+          newConvocados.remove(event.idjugador);
+        }
+
+        emit(currentState.copyWith(convocados: newConvocados));
       }
-
-      emit(currentState.copyWith(convocados: newConvocados));
     } catch (e) {
       debugPrint('⚽ [MatchesBloc] Error al toggle convocatoria: $e');
-      // No emitimos error para no cerrar el diálogo, solo log
     }
   }
 
@@ -948,28 +771,11 @@ class MatchesBloc extends Bloc<MatchesEvent, MatchesState> {
     try {
       final newDorsal = event.dorsal;
 
-      // Verificar que el dorsal no esté ya asignado a otro jugador en este partido
-      if (newDorsal != null) {
-        final existingDorsal = await _supabase
-            .from('tconvpartidos')
-            .select('idjugador')
-            .eq('idpartido', currentState.idpartido)
-            .eq('dorsal', newDorsal)
-            .neq('idjugador', event.idjugador)
-            .maybeSingle();
-
-        if (existingDorsal != null) {
-          debugPrint('⚽ [MatchesBloc] Dorsal $newDorsal ya está asignado a otro jugador');
-          return;
-        }
-      }
-
-      // Actualizar el dorsal en tconvpartidos
-      await _supabase
-          .from('tconvpartidos')
-          .update({'dorsal': newDorsal})
-          .eq('idpartido', currentState.idpartido)
-          .eq('idjugador', event.idjugador);
+      await _dataSource.updateConvocatoriaDorsal(
+        idpartido: currentState.idpartido,
+        idjugador: event.idjugador,
+        dorsal: newDorsal,
+      );
 
       debugPrint('⚽ [MatchesBloc] Dorsal actualizado a $newDorsal para jugador ${event.idjugador}');
 

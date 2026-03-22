@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/widgets/shared_widgets.dart';
 import '../../../../../core/config/app_config_cubit.dart';
+import '../../../../../core/routing/app_router.dart';
+import '../../../../../core/datasources/datasource_factory.dart';
+import '../../../../../core/datasources/app_datasource.dart';
+import '../../../../../core/datasources/api_response.dart';
 
 /// Dashboard para administradores de Club con estadísticas agregadas de todos sus equipos
 class ClubDashboard extends StatefulWidget {
   const ClubDashboard({
     super.key,
     required this.user,
+    this.idTemporada,
   });
 
   final UsuariosEntity user;
+  final int? idTemporada;
 
   @override
   State<ClubDashboard> createState() => _ClubDashboardState();
 }
 
 class _ClubDashboardState extends State<ClubDashboard> {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final AppDataSource _dataSource = DataSourceFactory.instance;
 
   bool _isLoading = true;
   String? _error;
@@ -73,38 +79,54 @@ class _ClubDashboardState extends State<ClubDashboard> {
         return;
       }
 
-      // Obtener la temporada activa del AppConfigCubit
+      // Usar idTemporada del auth state, con fallback al AppConfigCubit
       final appConfigCubit = context.read<AppConfigCubit>();
-      final idTemporada = appConfigCubit.activeSeasonId;
+      final idTemporada = widget.idTemporada ?? appConfigCubit.activeSeasonId;
 
-      // Obtener nombre del club
-      debugPrint('📊⏱️ [CLUB_DASH] [1/6] Query tclubes...');
+      // Cargar datos en paralelo usando el datasource
+      debugPrint('📊⏱️ [CLUB_DASH] Cargando datos...');
       var stepTime = Stopwatch()..start();
-      final clubData = await _supabase
-          .from('tclubes')
-          .select('club')
-          .eq('id', idclub)
-          .maybeSingle();
-      debugPrint('📊⏱️ [CLUB_DASH] [1/6] tclubes: ${stepTime.elapsedMilliseconds}ms');
 
-      // Obtener equipos del club filtrados por temporada activa
-      debugPrint('📊⏱️ [CLUB_DASH] [2/6] Query vequipos...');
-      stepTime.reset(); stepTime.start();
-      final equiposData = await _supabase
-          .from('vequipos')
-          .select('id, equipo, idcategoria')
-          .eq('idclub', idclub)
-          .eq('idtemporada', idTemporada);
-      debugPrint('📊⏱️ [CLUB_DASH] [2/6] vequipos: ${stepTime.elapsedMilliseconds}ms');
+      final results = await Future.wait([
+        _dataSource.getClub(idclub: idclub),
+        _dataSource.getEquipos(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getJugadoresByClub(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getEntrenamientosByClub(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getPartidosByClub(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getCategorias(),
+      ]);
 
-      // Obtener IDs de equipos para consultas relacionadas
-      final equipoIds = (equiposData as List)
-          .map((e) => e['id'] as int)
-          .toList();
+      debugPrint('📊⏱️ [CLUB_DASH] Datos cargados: ${stepTime.elapsedMilliseconds}ms');
+
+      final clubResponse = results[0] as ApiResponse<Map<String, dynamic>>;
+      final equiposResponse = results[1] as ApiResponse<List<Map<String, dynamic>>>;
+      final jugadoresResponse = results[2] as ApiResponse<List<Map<String, dynamic>>>;
+      final entrenamientosResponse = results[3] as ApiResponse<List<Map<String, dynamic>>>;
+      final partidosResponse = results[4] as ApiResponse<List<Map<String, dynamic>>>;
+      final categoriasResponse = results[5] as ApiResponse<List<Map<String, dynamic>>>;
+
+      // Verificar respuestas
+      if (!clubResponse.success || clubResponse.data == null) {
+        setState(() {
+          _error = 'Error al cargar datos del club';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final clubData = clubResponse.data!;
+      final equiposData = equiposResponse.success ? equiposResponse.data ?? <Map<String, dynamic>>[] : <Map<String, dynamic>>[];
+      final jugadoresData = jugadoresResponse.success ? jugadoresResponse.data ?? <Map<String, dynamic>>[] : <Map<String, dynamic>>[];
+      final entrenamientosData = entrenamientosResponse.success ? entrenamientosResponse.data ?? <Map<String, dynamic>>[] : <Map<String, dynamic>>[];
+      final partidosData = partidosResponse.success ? partidosResponse.data ?? <Map<String, dynamic>>[] : <Map<String, dynamic>>[];
+      final categoriasData = categoriasResponse.success ? categoriasResponse.data ?? <Map<String, dynamic>>[] : <Map<String, dynamic>>[];
+
+      // Obtener IDs de equipos
+      final equipoIds = equiposData.map((e) => e['id'] as int).toList();
 
       if (equipoIds.isEmpty) {
         setState(() {
-          _clubName = clubData?['club'] ?? 'Club desconocido';
+          _clubName = clubData['club']?.toString() ?? 'Club desconocido';
           _totalEquipos = 0;
           _totalJugadores = 0;
           _totalEntrenamientos = 0;
@@ -115,45 +137,17 @@ class _ClubDashboardState extends State<ClubDashboard> {
         return;
       }
 
-      // Contar jugadores de todos los equipos filtrados por temporada activa
-      debugPrint('📊⏱️ [CLUB_DASH] [3/6] Query vjugadores...');
-      stepTime.reset(); stepTime.start();
-      final jugadoresData = await _supabase
-          .from('vjugadores')
-          .select('id, idequipo')
-          .eq('idtemporada', idTemporada)
-          .inFilter('idequipo', equipoIds);
-      debugPrint('📊⏱️ [CLUB_DASH] [3/6] vjugadores: ${stepTime.elapsedMilliseconds}ms');
-
       // Contar jugadores por equipo
       final jugadoresPorEquipo = <int, int>{};
-      for (final jugador in jugadoresData as List) {
-        final idequipo = jugador['idequipo'] as int;
-        jugadoresPorEquipo[idequipo] = (jugadoresPorEquipo[idequipo] ?? 0) + 1;
+      for (final jugador in jugadoresData) {
+        final idequipo = jugador['idequipo'] as int?;
+        if (idequipo != null) {
+          jugadoresPorEquipo[idequipo] = (jugadoresPorEquipo[idequipo] ?? 0) + 1;
+        }
       }
 
-      // Obtener entrenamientos de todos los equipos filtrados por temporada activa
-      debugPrint('📊⏱️ [CLUB_DASH] [4/6] Query ventrenamientos...');
-      stepTime.reset(); stepTime.start();
-      final entrenamientosData = await _supabase
-          .from('ventrenamientos')
-          .select('id')
-          .eq('idtemporada', idTemporada)
-          .inFilter('idequipo', equipoIds);
-      debugPrint('📊⏱️ [CLUB_DASH] [4/6] ventrenamientos: ${stepTime.elapsedMilliseconds}ms');
-
-      // Obtener partidos de todos los equipos filtrados por temporada activa
-      debugPrint('📊⏱️ [CLUB_DASH] [5/6] Query vpartido...');
-      stepTime.reset(); stepTime.start();
-      final partidosData = await _supabase
-          .from('vpartido')
-          .select('id, goles, golesrival, finalizado')
-          .eq('idtemporada', idTemporada)
-          .inFilter('idequipo', equipoIds);
-      debugPrint('📊⏱️ [CLUB_DASH] [5/6] vpartido: ${stepTime.elapsedMilliseconds}ms');
-
       // Clasificar partidos: solo los finalizados cuentan para estadísticas
-      final jugados = (partidosData as List).where((p) {
+      final jugados = partidosData.where((p) {
         final finalizado = p['finalizado'];
         return finalizado == 1 || finalizado == true;
       }).toList();
@@ -199,16 +193,9 @@ class _ClubDashboardState extends State<ClubDashboard> {
         }
       }
 
-      // Obtener categorías para mostrar en la lista de equipos
-      debugPrint('📊⏱️ [CLUB_DASH] [6/6] Query tcategorias...');
-      stepTime.reset(); stepTime.start();
-      final categoriasData = await _supabase
-          .from('tcategorias')
-          .select('id, categoria');
-      debugPrint('📊⏱️ [CLUB_DASH] [6/6] tcategorias: ${stepTime.elapsedMilliseconds}ms');
-
+      // Map de categorías
       final categoriasMap = <int, String>{};
-      for (final cat in categoriasData as List) {
+      for (final cat in categoriasData) {
         categoriasMap[cat['id'] as int] = cat['categoria'] as String;
       }
 
@@ -226,7 +213,7 @@ class _ClubDashboardState extends State<ClubDashboard> {
 
       debugPrint('📊⏱️ [CLUB_DASH] ✅ TOTAL: ${_loadStopwatch.elapsedMilliseconds}ms');
       setState(() {
-        _clubName = clubData?['club'] ?? 'Club desconocido';
+        _clubName = clubData['club']?.toString() ?? 'Club desconocido';
         _totalEquipos = equiposData.length;
         _totalJugadores = jugadoresData.length;
         _totalEntrenamientos = entrenamientosData.length;
@@ -761,11 +748,12 @@ class _ClubDashboardState extends State<ClubDashboard> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: AppColors.gray900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header con nombre del club
-          Row(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header con nombre del club
+            Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
@@ -832,7 +820,53 @@ class _ClubDashboardState extends State<ClubDashboard> {
               ],
             ),
           ],
-        ],
+          // Acceso rápido a Cuotas
+          const Divider(height: 24),
+          GestureDetector(
+            onTap: () => context.go(AppRouter.fees),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.euro, color: AppColors.primary, size: 20),
+                  ),
+                  AppSpacing.hSpaceMd,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Gestión de Cuotas',
+                          style: AppTypography.labelMedium.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'Control de pagos y estado de cuotas',
+                          style: AppTypography.caption.copyWith(color: AppColors.gray500),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, color: AppColors.primary, size: 16),
+                ],
+              ),
+            ),
+          ),
+          ],
+        ),
       ),
     );
   }

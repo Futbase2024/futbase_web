@@ -1,16 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:futbase_web_3/core/datasources/datasource_factory.dart';
+import 'package:futbase_web_3/core/datasources/app_datasource.dart';
 
 import 'scouting_event.dart';
 import 'scouting_state.dart';
 
 /// BLoC para gestión de Scouting
 class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
-  final SupabaseClient _supabase;
+  final AppDataSource _dataSource;
 
-  ScoutingBloc({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client,
+  ScoutingBloc({AppDataSource? dataSource})
+      : _dataSource = dataSource ?? DataSourceFactory.instance,
         super(const ScoutingInitial()) {
     on<ScoutingInitializeRequested>(_onInitializeRequested);
     on<ScoutingLoadPlayers>(_onLoadPlayers);
@@ -41,34 +43,35 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
     try {
       // Cargar datos maestros en paralelo
       final results = await Future.wait([
-        _supabase.from('ttemporadas').select('id, temporada').order('id', ascending: false),
-        _supabase.from('tposiciones').select('id, posicion').order('id'),
-        _supabase.from('tcategorias').select('id, categoria').order('id'),
-        _supabase
-            .from('tjugadores')
-            .select('idpiedominante')
-            .not('idpiedominante', 'is', null),
+        _dataSource.getTemporadas(),
+        _dataSource.getPosiciones(),
+        _dataSource.getCategorias(),
       ]);
 
-      final temporadasData = results[0] as List<dynamic>;
-      final posicionesData = results[1] as List<dynamic>;
-      final categoriasData = results[2] as List<dynamic>;
-      // piesData no se usa directamente, los valores son fijos
+      final temporadasResponse = results[0];
+      final posicionesResponse = results[1];
+      final categoriasResponse = results[2];
 
       // Crear mapas de datos maestros
       final temporadasMap = <int, String>{};
-      for (final t in temporadasData) {
-        temporadasMap[t['id'] as int] = t['temporada'] as String;
+      if (temporadasResponse.success && temporadasResponse.data != null) {
+        for (final t in temporadasResponse.data!) {
+          temporadasMap[t['id'] as int] = t['temporada'] as String;
+        }
       }
 
       final posicionesMap = <int, String>{};
-      for (final p in posicionesData) {
-        posicionesMap[p['id'] as int] = p['posicion'] as String;
+      if (posicionesResponse.success && posicionesResponse.data != null) {
+        for (final p in posicionesResponse.data!) {
+          posicionesMap[p['id'] as int] = p['posicion'] as String;
+        }
       }
 
       final categoriasMap = <int, String>{};
-      for (final c in categoriasData) {
-        categoriasMap[c['id'] as int] = c['categoria'] as String;
+      if (categoriasResponse.success && categoriasResponse.data != null) {
+        for (final c in categoriasResponse.data!) {
+          categoriasMap[c['id'] as int] = c['categoria'] as String;
+        }
       }
 
       // Pie dominante (valores únicos)
@@ -79,8 +82,8 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
       };
 
       // Cargar jugadores con temporada activa (la más reciente)
-      final temporadaActiva = temporadasData.isNotEmpty
-          ? temporadasData.first['id'] as int
+      final temporadaActiva = temporadasMap.keys.isNotEmpty
+          ? temporadasMap.keys.reduce((a, b) => a > b ? a : b)
           : null;
 
       final filters = ScoutingFilters(idtemporada: temporadaActiva);
@@ -117,53 +120,31 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
     try {
       final filters = currentState.filters;
 
-      // Construir query base usando la vista vjugadores
-      dynamic query = _supabase
-          .from('vjugadores')
-          .select('''
-            id, nombre, apellidos, apodo, foto, dorsal,
-            idposicion, posicion,
-            idcategoria, categoria,
-            idpiedominante, pie,
-            fechanacimiento, altura, peso,
-            idtemporada, temporada,
-            idequipo, equipo,
-            idclub, club,
-            pj, ptitular, plesionado,
-            goles, penalti, ta, ta2, tr,
-            minutos, valoracion, capitan
-          ''');
-
-      // Si NO es superAdmin, filtrar por el club del usuario
+      // Construir parámetros de filtro
+      int? idclubFilter;
       if (!currentState.isSuperAdmin && currentState.userClubId != null) {
-        query = query.eq('idclub', currentState.userClubId!);
+        idclubFilter = currentState.userClubId;
       }
 
-      // Aplicar filtro de temporada
-      if (filters.idtemporada != null) {
-        query = query.eq('idtemporada', filters.idtemporada!);
+      final response = await _dataSource.getScoutingPlayers(
+        idclub: idclubFilter,
+        idtemporada: filters.idtemporada,
+        idposiciones: filters.idposiciones.isNotEmpty
+            ? filters.idposiciones.toList()
+            : null,
+        idcategorias: filters.idcategorias.isNotEmpty
+            ? filters.idcategorias.toList()
+            : null,
+        idpiedominante: filters.idpiedominante,
+        searchQuery: filters.searchQuery.isNotEmpty ? filters.searchQuery : null,
+      );
+
+      if (!response.success || response.data == null) {
+        emit(ScoutingError(message: response.message ?? 'Error al cargar jugadores'));
+        return;
       }
 
-      // Aplicar filtro de posiciones
-      if (filters.idposiciones.isNotEmpty) {
-        query = query.inFilter('idposicion', filters.idposiciones.toList());
-      }
-
-      // Aplicar filtro de categorías
-      if (filters.idcategorias.isNotEmpty) {
-        query = query.inFilter('idcategoria', filters.idcategorias.toList());
-      }
-
-      // Aplicar filtro de pie dominante
-      if (filters.idpiedominante != null) {
-        query = query.eq('idpiedominante', filters.idpiedominante!);
-      }
-
-      // Ordenar por nombre y apellidos de A a Z (ascendente)
-      final response = await query
-          .order('nombre', ascending: true)
-          .order('apellidos', ascending: true);
-      var players = (response as List<dynamic>).cast<Map<String, dynamic>>();
+      var players = response.data!;
 
       // Filtrar por edad en memoria (más flexible que SQL)
       if (filters.minAge != null || filters.maxAge != null) {
@@ -172,13 +153,7 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
 
       // Filtrar por valoración en memoria
       if (filters.minRating != null || filters.maxRating != null) {
-        players = _filterByRating(
-            players, filters.minRating, filters.maxRating);
-      }
-
-      // Filtrar por búsqueda en memoria
-      if (filters.searchQuery.isNotEmpty) {
-        players = _filterBySearch(players, filters.searchQuery);
+        players = _filterByRating(players, filters.minRating, filters.maxRating);
       }
 
       emit(currentState.copyWith(
@@ -348,22 +323,13 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
     if (currentState is! ScoutingLoaded) return;
 
     try {
-      final response = await _supabase
-          .from('vjugadores')
-          .select('''
-            id, nombre, apellidos, apodo,
-            idtemporada, temporada,
-            pj, ptitular, plesionado,
-            goles, penalti, ta, ta2, tr,
-            minutos, valoracion, capitan,
-            categoria, equipo
-          ''')
-          .eq('id', event.jugadorId)
-          .order('idtemporada');
+      final response = await _dataSource.getPlayerHistory(jugadorId: event.jugadorId);
 
-      final history = (response as List<dynamic>).cast<Map<String, dynamic>>();
-
-      emit(currentState.copyWith(playerHistory: history));
+      if (response.success && response.data != null) {
+        emit(currentState.copyWith(playerHistory: response.data));
+      } else {
+        emit(currentState.copyWith(playerHistory: []));
+      }
     } catch (e) {
       debugPrint('❌ ScoutingBloc._onLoadPlayerHistory: $e');
       // No emitir error, mantener historial vacío
@@ -498,23 +464,6 @@ class ScoutingBloc extends Bloc<ScoutingEvent, ScoutingState> {
       if (maxRating != null && valoracion > maxRating) return false;
 
       return true;
-    }).toList();
-  }
-
-  /// Filtrar jugadores por búsqueda
-  List<Map<String, dynamic>> _filterBySearch(
-    List<Map<String, dynamic>> players,
-    String query,
-  ) {
-    final lowerQuery = query.toLowerCase();
-    return players.where((player) {
-      final nombre = (player['nombre'] ?? '').toString().toLowerCase();
-      final apellidos = (player['apellidos'] ?? '').toString().toLowerCase();
-      final apodo = (player['apodo'] ?? '').toString().toLowerCase();
-      final equipo = (player['equipo'] ?? '').toString().toLowerCase();
-
-      return '$nombre $apellidos $apodo'.contains(lowerQuery) ||
-          equipo.contains(lowerQuery);
     }).toList();
   }
 }

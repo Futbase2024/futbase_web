@@ -1,16 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:futbase_web_3/core/datasources/datasource_factory.dart';
+import 'package:futbase_web_3/core/datasources/app_datasource.dart';
 
 import 'teams_event.dart';
 import 'teams_state.dart';
 
 /// BLoC para gestión de equipos
 class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
-  final SupabaseClient _supabase;
+  final AppDataSource _dataSource;
 
-  TeamsBloc({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client,
+  TeamsBloc({AppDataSource? dataSource})
+      : _dataSource = dataSource ?? DataSourceFactory.instance,
         super(const TeamsInitial()) {
     on<TeamsLoadRequested>(_onLoadRequested);
     on<TeamsRefreshRequested>(_onRefreshRequested);
@@ -32,40 +34,41 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
     emit(const TeamsLoading());
 
     try {
-      // Usar la temporada activa del evento (viene del AppConfigCubit global)
       final activeSeasonId = event.activeSeasonId;
       debugPrint('🗓️ [TeamsBloc] Temporada activa: $activeSeasonId');
 
       // Ejecutar queries en paralelo
       final results = await Future.wait([
-        _supabase
-            .from('vequipos')
-            .select()
-            .eq('idclub', event.idclub)
-            .eq('idtemporada', activeSeasonId)
-            .order('equipo'),
-        _supabase.from('tcategorias').select('id, categoria').order('id'),
-        _supabase.from('ttemporadas').select('id, temporada').order('id', ascending: false),
+        _dataSource.getEquipos(idclub: event.idclub, idtemporada: activeSeasonId),
+        _dataSource.getCategorias(),
+        _dataSource.getTemporadas(),
       ]);
 
       final teamsResponse = results[0];
-      final categoriesData = results[1];
-      final seasonsData = results[2];
+      final categoriesResponse = results[1];
+      final seasonsResponse = results[2];
+
+      if (!teamsResponse.success || teamsResponse.data == null) {
+        emit(TeamsError(message: teamsResponse.message ?? 'Error al cargar equipos'));
+        return;
+      }
+
+      final teams = teamsResponse.data!;
 
       // Crear mapas de categorías y temporadas
       final categoriesMap = <int, String>{};
-      for (final cat in categoriesData) {
-        categoriesMap[cat['id'] as int] = cat['categoria'] as String;
+      if (categoriesResponse.success && categoriesResponse.data != null) {
+        for (final cat in categoriesResponse.data!) {
+          categoriesMap[cat['id'] as int] = cat['categoria'] as String;
+        }
       }
 
       final seasonsMap = <int, String>{};
-      for (final season in seasonsData) {
-        seasonsMap[season['id'] as int] = season['temporada'] as String;
+      if (seasonsResponse.success && seasonsResponse.data != null) {
+        for (final season in seasonsResponse.data!) {
+          seasonsMap[season['id'] as int] = season['temporada'] as String;
+        }
       }
-
-      final teams = (teamsResponse as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .toList();
 
       debugPrint('✅ [TeamsBloc] Cargados ${teams.length} equipos');
 
@@ -101,31 +104,35 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
 
     try {
       final results = await Future.wait([
-        _supabase
-            .from('vequipos')
-            .select()
-            .eq('idclub', event.idclub)
-            .eq('idtemporada', event.activeSeasonId)
-            .order('equipo'),
-        _supabase.from('tcategorias').select('id, categoria').order('id'),
-        _supabase.from('ttemporadas').select('id, temporada').order('id', ascending: false),
+        _dataSource.getEquipos(idclub: event.idclub, idtemporada: event.activeSeasonId),
+        _dataSource.getCategorias(),
+        _dataSource.getTemporadas(),
       ]);
 
-      final teamsData = results[0] as List<dynamic>;
-      final categoriesData = results[1] as List<dynamic>;
-      final seasonsData = results[2] as List<dynamic>;
+      final teamsResponse = results[0];
+      final categoriesResponse = results[1];
+      final seasonsResponse = results[2];
+
+      if (!teamsResponse.success || teamsResponse.data == null) {
+        emit(TeamsError(message: teamsResponse.message ?? 'Error al refrescar'));
+        return;
+      }
+
+      final teams = teamsResponse.data!;
 
       final categoriesMap = <int, String>{};
-      for (final cat in categoriesData) {
-        categoriesMap[cat['id'] as int] = cat['categoria'] as String;
+      if (categoriesResponse.success && categoriesResponse.data != null) {
+        for (final cat in categoriesResponse.data!) {
+          categoriesMap[cat['id'] as int] = cat['categoria'] as String;
+        }
       }
 
       final seasonsMap = <int, String>{};
-      for (final season in seasonsData) {
-        seasonsMap[season['id'] as int] = season['temporada'] as String;
+      if (seasonsResponse.success && seasonsResponse.data != null) {
+        for (final season in seasonsResponse.data!) {
+          seasonsMap[season['id'] as int] = season['temporada'] as String;
+        }
       }
-
-      final teams = teamsData.cast<Map<String, dynamic>>().toList();
 
       // Aplicar filtros anteriores
       var filteredTeams = teams;
@@ -276,28 +283,26 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
 
     emit(currentState.copyWith(isCreating: true));
 
-    try {
-      await _supabase.from('tequipos').insert({
-        'idclub': event.idclub,
-        'idcategoria': event.idcategoria,
-        'idtemporada': event.idtemporada,
-        'equipo': event.equipo,
-        'ncorto': event.ncorto,
-        'titulares': event.titulares,
-        'minutos': event.minutos,
-      });
+    final response = await _dataSource.createEquipo(
+      idclub: event.idclub,
+      idcategoria: event.idcategoria,
+      idtemporada: event.idtemporada,
+      equipo: event.equipo,
+      ncorto: event.ncorto,
+      titulares: event.titulares,
+      minutos: event.minutos,
+    );
 
+    if (response.success) {
       debugPrint('✅ [TeamsBloc] Equipo creado: ${event.equipo}');
-
-      // Recargar equipos
       add(TeamsRefreshRequested(
         idclub: event.idclub,
         activeSeasonId: event.idtemporada,
       ));
-    } catch (e) {
-      debugPrint('❌ [TeamsBloc] Error al crear equipo: $e');
+    } else {
+      debugPrint('❌ [TeamsBloc] Error al crear equipo: ${response.message}');
       emit(currentState.copyWith(isCreating: false));
-      emit(TeamsError(message: 'Error al crear equipo: $e'));
+      emit(TeamsError(message: 'Error al crear equipo: ${response.message}'));
     }
   }
 
@@ -311,19 +316,17 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
 
     emit(currentState.copyWith(isUpdating: true));
 
-    try {
-      await _supabase
-          .from('tequipos')
-          .update({
-            'idcategoria': event.idcategoria,
-            'idtemporada': event.idtemporada,
-            'equipo': event.equipo,
-            'ncorto': event.ncorto,
-            'titulares': event.titulares,
-            'minutos': event.minutos,
-          })
-          .eq('id', event.id);
+    final response = await _dataSource.updateEquipo(
+      id: event.id,
+      idcategoria: event.idcategoria,
+      idtemporada: event.idtemporada,
+      equipo: event.equipo,
+      ncorto: event.ncorto,
+      titulares: event.titulares,
+      minutos: event.minutos,
+    );
 
+    if (response.success) {
       debugPrint('✅ [TeamsBloc] Equipo actualizado: ${event.equipo}');
 
       // Obtener idclub del equipo actualizado para refrescar
@@ -338,10 +341,10 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
           activeSeasonId: currentState.activeSeasonId,
         ));
       }
-    } catch (e) {
-      debugPrint('❌ [TeamsBloc] Error al actualizar equipo: $e');
+    } else {
+      debugPrint('❌ [TeamsBloc] Error al actualizar equipo: ${response.message}');
       emit(currentState.copyWith(isUpdating: false));
-      emit(TeamsError(message: 'Error al actualizar equipo: $e'));
+      emit(TeamsError(message: 'Error al actualizar equipo: ${response.message}'));
     }
   }
 
@@ -355,15 +358,15 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
 
     emit(currentState.copyWith(isDeleting: true));
 
-    try {
-      // Obtener idclub antes de eliminar
-      final teamToDelete = currentState.teams.firstWhere(
-        (t) => t['id'] == event.id,
-        orElse: () => <String, dynamic>{},
-      );
+    // Obtener idclub antes de eliminar
+    final teamToDelete = currentState.teams.firstWhere(
+      (t) => t['id'] == event.id,
+      orElse: () => <String, dynamic>{},
+    );
 
-      await _supabase.from('tequipos').delete().eq('id', event.id);
+    final response = await _dataSource.deleteEquipo(id: event.id);
 
+    if (response.success) {
       debugPrint('✅ [TeamsBloc] Equipo eliminado: ${event.id}');
 
       if (teamToDelete.isNotEmpty) {
@@ -372,10 +375,10 @@ class TeamsBloc extends Bloc<TeamsEvent, TeamsState> {
           activeSeasonId: currentState.activeSeasonId,
         ));
       }
-    } catch (e) {
-      debugPrint('❌ [TeamsBloc] Error al eliminar equipo: $e');
+    } else {
+      debugPrint('❌ [TeamsBloc] Error al eliminar equipo: ${response.message}');
       emit(currentState.copyWith(isDeleting: false));
-      emit(TeamsError(message: 'Error al eliminar equipo: $e'));
+      emit(TeamsError(message: 'Error al eliminar equipo: ${response.message}'));
     }
   }
 

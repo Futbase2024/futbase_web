@@ -44,6 +44,10 @@ dependencies:
   # Supabase
   supabase_flutter: ^2.8.3
 
+  # Firebase (para backend_seguro_web)
+  firebase_core: ^3.12.1
+  firebase_auth: ^5.5.1
+
   # Core Datasource (local package)
   futbase_core_datasource:
     path: ../FutBase3/futbase_core_datasource

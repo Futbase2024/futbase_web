@@ -1,0 +1,30 @@
+# FutBase Backend Seguro - .gitignore
+
+# Archivos de configuración con credenciales
+config/db_config.php
+config/firebase_config.php
+
+# Caché
+cache/data/*.cache
+cache/rate_limit/*.json
+
+# Logs
+logs/*.log
+logs/*.txt
+
+# Archivos temporales
+*.tmp
+*.bak
+*.swp
+*~
+
+# MacOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Test files
+tests/temp/

@@ -10,12 +10,12 @@ import 'players_search_bar.dart';
 import 'players_filter_chips.dart';
 import 'players_empty_state.dart';
 import 'players_filter_dialog.dart';
+import '../../../player_profile/player_profile_dialog.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/constants/user_roles.dart';
 import '../../../../core/config/app_config_cubit.dart';
-import '../../../dashboard/presentation/widgets/dashboard_sidebar.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 
 /// Contenido de jugadores para integrar en el dashboard
@@ -43,15 +43,6 @@ class _PlayersContentState extends State<PlayersContent> {
   @override
   void initState() {
     super.initState();
-    // Log de timing: initState de PlayersContent
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (playersClickTimestamp != null) {
-      final elapsed = now - playersClickTimestamp!;
-      debugPrint('⏱️ [TIMING] 📦 PlayersContent.initState: $now ms | ⚡ Transcurrido desde click: ${elapsed}ms');
-    } else {
-      debugPrint('⏱️ [TIMING] 📦 PlayersContent.initState: $now ms (sin timestamp de click)');
-    }
-
     _playersBloc = PlayersBloc();
     _loadPlayers();
   }
@@ -96,6 +87,7 @@ class _PlayersContentState extends State<PlayersContent> {
       if (idequipo > 0) {
         _playersBloc.add(PlayersLoadRequested(
           idequipo: idequipo,
+          idclub: idclub, // Pasar idclub para evitar consulta adicional al endpoint
           activeSeasonId: activeSeasonId,
         ));
       } else {
@@ -133,6 +125,22 @@ class _PlayersContentState extends State<PlayersContent> {
   void _clearFilters() {
     _searchController.clear();
     _playersBloc.add(const PlayersClearFilters());
+  }
+
+  /// Muestra el perfil de un jugador en un diálogo del 90% de la pantalla
+  Future<void> _showPlayerProfile(Map<String, dynamic> player) async {
+    final playerId = player['id'];
+    if (playerId == null) return;
+
+    final id = playerId is int ? playerId : int.tryParse(playerId.toString());
+    if (id == null) return;
+
+    // Mostrar diálogo del perfil
+    await PlayerProfileDialog.show(
+      context,
+      playerId: id,
+      playerData: player,
+    );
   }
 
   @override
@@ -295,9 +303,13 @@ class _PlayersContentState extends State<PlayersContent> {
                       return PlayerCard(
                         player: player,
                         position: position,
-                        onTap: () {
-                          debugPrint('Jugador: ${player['nombre']}');
+                        onTap: () {},
+                        onEdit: () {
+                          // TODO: Implementar edición de jugador
+                          debugPrint('Editar jugador: ${player['nombre']}');
                         },
+                        onProfile: () => _showPlayerProfile(player),
+                        onDelete: () => _confirmDeletePlayer(player),
                       );
                     },
                     childCount: filteredPlayers.length,
@@ -556,5 +568,22 @@ class _PlayersContentState extends State<PlayersContent> {
         ],
       ),
     );
+  }
+
+  /// Muestra diálogo de confirmación para eliminar jugador
+  Future<void> _confirmDeletePlayer(Map<String, dynamic> player) async {
+    final nombreCompleto = '${player['nombre'] ?? ''} ${player['apellidos'] ?? ''}'.trim();
+    final confirmed = await CeConfirmDialog.show(
+      context,
+      title: '¿Eliminar jugador?',
+      message: '¿Estás seguro de que deseas eliminar a "$nombreCompleto"? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+    );
+
+    if (confirmed) {
+      // TODO: Implementar eliminación de jugador
+      debugPrint('Eliminar jugador confirmado: ${player['id']}');
+    }
   }
 }

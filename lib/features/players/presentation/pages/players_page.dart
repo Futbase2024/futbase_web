@@ -53,11 +53,13 @@ class _PlayersPageState extends State<PlayersPage> {
 
   void _loadPlayers() {
     final idequipo = widget.user.idequipo;
+    final idclub = widget.user.idclub;
     // Obtener la temporada activa del AppConfigCubit global
     final activeSeasonId = context.read<AppConfigCubit>().activeSeasonId;
     if (idequipo > 0) {
       _playersBloc.add(PlayersLoadRequested(
         idequipo: idequipo,
+        idclub: idclub, // Pasar idclub para evitar consulta adicional al endpoint
         activeSeasonId: activeSeasonId,
       ));
     }

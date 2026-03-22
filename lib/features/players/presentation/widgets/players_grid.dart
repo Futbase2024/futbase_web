@@ -9,11 +9,17 @@ class PlayersGrid extends StatelessWidget {
     required this.players,
     required this.positions,
     required this.onPlayerTap,
+    this.onPlayerEdit,
+    this.onPlayerProfile,
+    this.onPlayerDelete,
   });
 
   final List<Map<String, dynamic>> players;
   final Map<int, String> positions;
   final void Function(Map<String, dynamic> player) onPlayerTap;
+  final void Function(Map<String, dynamic> player)? onPlayerEdit;
+  final void Function(Map<String, dynamic> player)? onPlayerProfile;
+  final void Function(Map<String, dynamic> player)? onPlayerDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +38,9 @@ class PlayersGrid extends StatelessWidget {
           player: player,
           position: _getPositionName(player['idposicion']),
           onTap: () => onPlayerTap(player),
+          onEdit: onPlayerEdit != null ? () => onPlayerEdit!(player) : null,
+          onProfile: onPlayerProfile != null ? () => onPlayerProfile!(player) : null,
+          onDelete: onPlayerDelete != null ? () => onPlayerDelete!(player) : null,
         );
       },
     );
@@ -52,11 +61,17 @@ class PlayerCard extends StatelessWidget {
     required this.player,
     required this.position,
     required this.onTap,
+    this.onEdit,
+    this.onProfile,
+    this.onDelete,
   });
 
   final Map<String, dynamic> player;
   final String position;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onProfile;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -144,20 +159,28 @@ class PlayerCard extends StatelessWidget {
                             color: AppColors.primary.withValues(alpha: 0.2),
                             width: 3,
                           ),
-                          image: foto != null && foto.isNotEmpty
-                              ? DecorationImage(
-                                  image: NetworkImage(foto),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
                         ),
-                        child: foto == null || foto.isEmpty
-                            ? Icon(
-                                Icons.person_rounded,
-                                size: 60,
-                                color: AppColors.primary.withValues(alpha: 0.4),
-                              )
-                            : null,
+                        child: ClipOval(
+                          child: foto != null && foto.isNotEmpty
+                              ? Image.network(
+                                  foto,
+                                  fit: BoxFit.cover,
+                                  width: 120,
+                                  height: 120,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(
+                                      Icons.person_rounded,
+                                      size: 60,
+                                      color: AppColors.primary.withValues(alpha: 0.4),
+                                    );
+                                  },
+                                )
+                              : Icon(
+                                  Icons.person_rounded,
+                                  size: 60,
+                                  color: AppColors.primary.withValues(alpha: 0.4),
+                                ),
+                        ),
                       ),
                     ),
 
@@ -190,6 +213,75 @@ class PlayerCard extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                    // Menú de acciones
+                    if (onEdit != null || onProfile != null || onDelete != null)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.more_vert,
+                            size: 20,
+                            color: AppColors.gray400,
+                          ),
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'edit':
+                                onEdit?.call();
+                                break;
+                              case 'profile':
+                                onProfile?.call();
+                                break;
+                              case 'delete':
+                                onDelete?.call();
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            if (onEdit != null)
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit_outlined, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Editar'),
+                                  ],
+                                ),
+                              ),
+                            if (onProfile != null)
+                              const PopupMenuItem(
+                                value: 'profile',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.person_outline, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Ver ficha'),
+                                  ],
+                                ),
+                              ),
+                            if (onDelete != null)
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: AppColors.error,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Eliminar',
+                                      style: TextStyle(color: AppColors.error),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

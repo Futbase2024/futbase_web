@@ -1,0 +1,217 @@
+<?php
+/**
+ * Endpoint de cuotas con manejo robusto de errores
+ * Asegura que SIEMPRE se devuelva JSON, nunca HTML
+ */
+
+header('Content-Type: application/json; charset=utf-8');
+
+require_once __DIR__ . '/../core/Database.php';
+require_once __DIR__ . '/../core/CacheManager.php';
+require_once __DIR__ . '/../core/ResponseHelper.php';
+require_once __DIR__ . '/../middleware/FirebaseAuthMiddleware.php';
+require_once __DIR__ . '/../config/cors.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+$db = Database::getInstance();
+$cache = new CacheManager(300);
+$auth = new FirebaseAuthMiddleware();
+$userData = $auth->protect(100, 60);
+
+$action = $_GET['action'] ?? '';
+
+try {
+    switch ($action) {
+        // Operaciones de lectura
+        case 'getcuotabyid':
+            getcuotabyid($db, $cache);
+            break;
+        case 'getcuotasbyclub':
+            getcuotasbyclub($db, $cache);
+            break;
+        case 'getcuotabyplayertemp':
+            getcuotabyplayertemp($db, $cache);
+            break;
+        case 'getcuotawithoutid':
+            getcuotawithoutid($db, $cache);
+            break;
+
+        // Operaciones de escritura
+        case 'createcuota':
+            createcuota($db, $cache);
+            break;
+        case 'updatecuota':
+            updatecuota($db, $cache);
+            break;
+        case 'updatetypecuota':
+            updatetypecuota($db, $cache);
+            break;
+        case 'deletecuota':
+            deletecuota($db, $cache);
+            break;
+        case 'deletecuotabyid':
+            deletecuotabyid($db, $cache);
+            break;
+        default:
+            respondError('Acción no válida', 400);
+    }
+} catch (Exception $e) {
+    error_log("Error in cuotas.php: " . $e->getMessage());
+    respondInternalError('Error al procesar la solicitud');
+}
+
+function getcuotabyid($db, $cache) {
+    $id = $_GET['id'] ?? null;
+    if (!$id) {
+        respondError('id requerido', 400);
+    }
+
+    $cacheKey = "cuota_{$id}";
+    $cuota = $cache->remember($cacheKey, function() use ($db, $id) {
+        $sql = 'SELECT * FROM tcuotas WHERE id = ?';
+        return $db->selectOne($sql, [$id]);
+    }, 300);
+
+    respondSuccess($cuota ?? ['id' => 0]);
+}
+
+function getcuotasbyclub($db, $cache) {
+    $idclub = $_GET['idclub'] ?? null;
+    if (!$idclub) {
+        respondError('idclub requerido', 400);
+    }
+
+    $cacheKey = "cuotas_club_{$idclub}";
+    $cuotas = $cache->remember($cacheKey, function() use ($db, $idclub) {
+        $sql = 'SELECT * FROM tcuotas WHERE idclub = ? ORDER BY fecha DESC';
+        return $db->select($sql, [$idclub]);
+    }, 300);
+
+    respondSuccess($cuotas);
+}
+
+function getcuotabyplayertemp($db, $cache) {
+    $idjugador = $_GET['idjugador'] ?? null;
+    $idtemporada = $_GET['idtemporada'] ?? null;
+
+    if (!$idjugador || !$idtemporada) {
+        respondError('idjugador e idtemporada requeridos', 400);
+    }
+
+    $cacheKey = "cuota_jugador_{$idjugador}_temp_{$idtemporada}";
+    $cuota = $cache->remember($cacheKey, function() use ($db, $idjugador, $idtemporada) {
+        $sql = 'SELECT * FROM tcuotas WHERE idjugador = ? AND idtemporada = ?';
+        return $db->selectOne($sql, [$idjugador, $idtemporada]);
+    }, 300);
+
+    respondSuccess($cuota ?? ['id' => 0]);
+}
+
+function getcuotawithoutid($db, $cache) {
+    $idclub = $_GET['idclub'] ?? null;
+    if (!$idclub) {
+        respondError('idclub requerido', 400);
+    }
+
+    $cacheKey = "cuotas_without_id_{$idclub}";
+    $cuotas = $cache->remember($cacheKey, function() use ($db, $idclub) {
+        $sql = 'SELECT * FROM tcuotas WHERE idclub = ? AND id = 0';
+        return $db->select($sql, [$idclub]);
+    }, 300);
+
+    respondSuccess($cuotas);
+}
+
+function createcuota($db, $cache) {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $idclub = $input['idclub'] ?? null;
+    $idjugador = $input['idjugador'] ?? null;
+    $idtemporada = $input['idtemporada'] ?? null;
+    $importe = $input['importe'] ?? null;
+
+    if (!$idclub || !$idjugador || !$idtemporada || !$importe) {
+        respondError('Datos incompletos', 400);
+    }
+
+    $sql = 'INSERT INTO tcuotas (idclub, idjugador, idtemporada, importe, fecha) VALUES (?, ?, ?, ?, NOW())';
+    $insertId = $db->insert($sql, [$idclub, $idjugador, $idtemporada, $importe]);
+
+    if ($insertId) {
+        $cache->forget("cuotas_club_{$idclub}");
+        $cache->forget("cuota_jugador_{$idjugador}_temp_{$idtemporada}");
+        respondSuccess(['success' => true, 'id' => $insertId]);
+    } else {
+        respondInternalError('Error al crear cuota');
+    }
+}
+
+function updatecuota($db, $cache) {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $id = $input['id'] ?? null;
+    $importe = $input['importe'] ?? null;
+
+    if (!$id || !$importe) {
+        respondError('id e importe requeridos', 400);
+    }
+
+    $sql = 'UPDATE tcuotas SET importe = ? WHERE id = ?';
+    $result = $db->update($sql, [$importe, $id]);
+
+    if ($result) {
+        $cache->forget("cuota_{$id}");
+        respondSuccess(['success' => true]);
+    } else {
+        respondInternalError('Error al actualizar cuota');
+    }
+}
+
+function updatetypecuota($db, $cache) {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $id = $input['id'] ?? null;
+    $tipo = $input['tipo'] ?? null;
+
+    if (!$id || !$tipo) {
+        respondError('id y tipo requeridos', 400);
+    }
+
+    $sql = 'UPDATE tcuotas SET tipo = ? WHERE id = ?';
+    $result = $db->update($sql, [$tipo, $id]);
+
+    if ($result) {
+        $cache->forget("cuota_{$id}");
+        respondSuccess(['success' => true]);
+    } else {
+        respondInternalError('Error al actualizar tipo de cuota');
+    }
+}
+
+function deletecuota($db, $cache) {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $id = $input['id'] ?? null;
+
+    if (!$id) {
+        respondError('id requerido', 400);
+    }
+
+    $sql = 'DELETE FROM tcuotas WHERE id = ?';
+    $result = $db->delete($sql, [$id]);
+
+    if ($result) {
+        $cache->forget("cuota_{$id}");
+        respondSuccess(['success' => true]);
+    } else {
+        respondInternalError('Error al eliminar cuota');
+    }
+}
+
+function deletecuotabyid($db, $cache) {
+    deletecuota($db, $cache);
+}

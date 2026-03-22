@@ -1,16 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:futbase_web_3/core/datasources/datasources.dart';
 
 import 'trainings_event.dart';
 import 'trainings_state.dart';
 
 /// BLoC para gestión de entrenamientos
 class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
-  final SupabaseClient _supabase;
+  final AppDataSource _datasource;
 
-  TrainingsBloc({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client,
+  TrainingsBloc({AppDataSource? datasource})
+      : _datasource = datasource ?? DataSourceFactory.instance,
         super(const TrainingsInitial()) {
     on<TrainingsLoadRequested>(_onLoadRequested);
     on<TrainingsRefreshRequested>(_onRefreshRequested);
@@ -23,7 +24,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     on<AttendanceLoadRequested>(_onAttendanceLoadRequested);
     on<AttendanceMarkRequested>(_onAttendanceMarkRequested);
     on<AttendanceSaveRequested>(_onAttendanceSaveRequested);
-    // Nuevos handlers para Club/Coordinador
     on<TrainingsLoadByClubRequested>(_onLoadByClubRequested);
     on<AttendanceStatsRequested>(_onAttendanceStatsRequested);
     on<CalendarViewChanged>(_onCalendarViewChanged);
@@ -39,7 +39,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     debugPrint('🏋️ [TrainingsBloc] ⏱️ INICIO _onLoadRequested (idequipo=${event.idequipo}, temporada=${event.activeSeasonId})');
     emit(const TrainingsLoading());
 
-    // Si el idequipo no es válido, emitir estado vacío
     if (event.idequipo <= 0) {
       debugPrint('🏋️ [TrainingsBloc] ID de equipo inválido, emitiendo estado vacío');
       emit(TrainingsLoaded(
@@ -52,31 +51,16 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     }
 
     try {
-      // Cargar entrenamientos desde la vista filtrando por temporada
-      final queryStopwatch = Stopwatch()..start();
-      final trainingsData = await _supabase
-          .from('ventrenamientos')
-          .select('''
-            id,
-            fecha,
-            hinicio,
-            hfin,
-            idequipo,
-            nombre,
-            observaciones,
-            finalizado,
-            campo
-          ''')
-          .eq('idequipo', event.idequipo)
-          .eq('idtemporada', event.activeSeasonId)
-          .order('fecha', ascending: false);
-      queryStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ Query ventrenamientos: ${queryStopwatch.elapsedMilliseconds}ms (${trainingsData.length} registros)');
+      final response = await _datasource.getEntrenamientos(
+        idequipo: event.idequipo,
+        idtemporada: event.activeSeasonId,
+      );
 
-      final processingStopwatch = Stopwatch()..start();
-      final trainings = (trainingsData as List<dynamic>).cast<Map<String, dynamic>>().toList();
-      processingStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ Procesamiento datos: ${processingStopwatch.elapsedMilliseconds}ms');
+      if (!response.success || response.data == null) {
+        throw Exception(response.message ?? 'Error al cargar entrenamientos');
+      }
+
+      final trainings = response.data!;
 
       totalStopwatch.stop();
       debugPrint('🏋️ [TrainingsBloc] ✅ TOTAL _onLoadRequested: ${totalStopwatch.elapsedMilliseconds}ms');
@@ -84,7 +68,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
       emit(TrainingsLoaded(
         trainings: trainings,
         filteredTrainings: trainings,
-        trainingTypes: {}, // No hay tabla de tipos
+        trainingTypes: {},
         focusedWeek: DateTime.now(),
         activeSeasonId: event.activeSeasonId,
       ));
@@ -112,28 +96,18 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     }
 
     try {
-      // Cargar entrenamientos desde la vista filtrando por temporada
-      final trainingsData = await _supabase
-          .from('ventrenamientos')
-          .select('''
-            id,
-            fecha,
-            hinicio,
-            hfin,
-            idequipo,
-            nombre,
-            observaciones,
-            finalizado,
-            campo
-          ''')
-          .eq('idequipo', event.idequipo)
-          .eq('idtemporada', event.activeSeasonId)
-          .order('fecha', ascending: false);
+      final response = await _datasource.getEntrenamientos(
+        idequipo: event.idequipo,
+        idtemporada: event.activeSeasonId,
+      );
 
-      var trainings = (trainingsData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+      if (!response.success || response.data == null) {
+        throw Exception(response.message ?? 'Error al refrescar entrenamientos');
+      }
+
+      var trainings = response.data!;
       var filteredTrainings = trainings;
 
-      // Reaplicar filtros
       if (currentFromDate != null || currentToDate != null) {
         filteredTrainings = _filterByDateRange(filteredTrainings, currentFromDate, currentToDate);
       }
@@ -144,7 +118,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
       emit(TrainingsLoaded(
         trainings: trainings,
         filteredTrainings: filteredTrainings,
-        trainingTypes: {}, // No hay tabla de tipos
+        trainingTypes: {},
         filterFromDate: currentFromDate,
         filterToDate: currentToDate,
         filterByType: currentType,
@@ -170,7 +144,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
       filtered = _filterByDateRange(filtered, event.fromDate, event.toDate);
     }
 
-    // Mantener filtro de tipo si existe
     if (currentState.filterByType != null) {
       filtered = _filterByTypeId(filtered, currentState.filterByType!);
     }
@@ -196,7 +169,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
       filtered = _filterByTypeId(filtered, event.idtipo!);
     }
 
-    // Mantener filtro de fechas si existe
     if (currentState.filterFromDate != null || currentState.filterToDate != null) {
       filtered = _filterByDateRange(filtered, currentState.filterFromDate, currentState.filterToDate);
     }
@@ -232,14 +204,17 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     final activeSeasonId = currentState is TrainingsLoaded ? currentState.activeSeasonId : 0;
 
     try {
-      await _supabase.from('tentrenamientos').insert({
-        'idequipo': event.idequipo,
-        'fecha': event.fecha.toIso8601String().split('T')[0],
-        'hinicio': event.horaInicio,
-        'hfin': event.horaFin,
-        'nombre': event.observaciones, // Usamos nombre como descripción corta
-        'observaciones': event.observaciones,
-      });
+      final response = await _datasource.createEntrenamiento(
+        idequipo: event.idequipo,
+        fecha: event.fecha,
+        horaInicio: event.horaInicio ?? '00:00',
+        horaFin: event.horaFin ?? '00:00',
+        observaciones: event.observaciones,
+      );
+
+      if (!response.success) {
+        throw Exception(response.message ?? 'Error al crear entrenamiento');
+      }
 
       debugPrint('🏋️ [TrainingsBloc] Entrenamiento creado correctamente');
       add(TrainingsLoadRequested(idequipo: event.idequipo, activeSeasonId: activeSeasonId));
@@ -258,16 +233,18 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     final activeSeasonId = currentState is TrainingsLoaded ? currentState.activeSeasonId : 0;
 
     try {
-      await _supabase
-          .from('tentrenamientos')
-          .update({
-            'fecha': event.fecha.toIso8601String().split('T')[0],
-            'hinicio': event.horaInicio,
-            'hfin': event.horaFin,
-            'nombre': event.observaciones,
-            'observaciones': event.observaciones,
-          })
-          .eq('id', event.id);
+      final response = await _datasource.updateEntrenamiento(
+        id: event.id,
+        idequipo: event.idequipo,
+        fecha: event.fecha,
+        horaInicio: event.horaInicio ?? '00:00',
+        horaFin: event.horaFin ?? '00:00',
+        observaciones: event.observaciones,
+      );
+
+      if (!response.success) {
+        throw Exception(response.message ?? 'Error al actualizar entrenamiento');
+      }
 
       debugPrint('🏋️ [TrainingsBloc] Entrenamiento actualizado correctamente');
       add(TrainingsLoadRequested(idequipo: event.idequipo, activeSeasonId: activeSeasonId));
@@ -286,10 +263,11 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     final activeSeasonId = currentState is TrainingsLoaded ? currentState.activeSeasonId : 0;
 
     try {
-      await _supabase
-          .from('tentrenamientos')
-          .delete()
-          .eq('id', event.id);
+      final response = await _datasource.deleteEntrenamiento(id: event.id);
+
+      if (!response.success) {
+        throw Exception(response.message ?? 'Error al eliminar entrenamiento');
+      }
 
       debugPrint('🏋️ [TrainingsBloc] Entrenamiento eliminado correctamente');
       add(TrainingsLoadRequested(idequipo: event.idequipo, activeSeasonId: activeSeasonId));
@@ -309,27 +287,23 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     debugPrint('🏋️ [TrainingsBloc] ⏱️ INICIO _onAttendanceLoadRequested (identrenamiento=${event.identrenamiento})');
 
     try {
-      // PASO 1: Cargar motivos de asistencia disponibles
-      final step1Stopwatch = Stopwatch()..start();
-      final motivesResponse = await _supabase
-          .from('tmotivoasistencia')
-          .select('id, motivo')
-          .order('id');
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [1] Query tmotivoasistencia: ${step1Stopwatch.elapsedMilliseconds}ms');
+      // Cargar motivos
+      final motivesResponse = await _datasource.getMotivosAsistencia();
+      if (!motivesResponse.success || motivesResponse.data == null) {
+        throw Exception(motivesResponse.message ?? 'Error al cargar motivos');
+      }
+      final motives = motivesResponse.data!;
 
-      // PASO 2: Cargar asistencia desde la vista ventrenojugador
-      final step2Stopwatch = Stopwatch()..start();
-      final attendanceResponse = await _supabase
-          .from('ventrenojugador')
-          .select('idjugador, nombrejug, apellidos, asiste, idmotivo, motivo, observaciones, idequipo, idclub')
-          .eq('identrenamiento', event.identrenamiento)
-          .order('nombrejug')
-          .order('apellidos');
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [2] Query ventrenojugador: ${step2Stopwatch.elapsedMilliseconds}ms (${attendanceResponse.length} registros)');
+      // Cargar asistencia
+      final attendanceResponse = await _datasource.getAsistenciaEntrenamiento(
+        identrenamiento: event.identrenamiento,
+      );
 
-      final processingStopwatch = Stopwatch()..start();
-      final motives = (motivesResponse as List<dynamic>).cast<Map<String, dynamic>>().toList();
-      final attendanceData = attendanceResponse as List<dynamic>;
+      if (!attendanceResponse.success || attendanceResponse.data == null) {
+        throw Exception(attendanceResponse.message ?? 'Error al cargar asistencia');
+      }
+
+      final attendanceData = attendanceResponse.data!;
 
       if (attendanceData.isEmpty) {
         debugPrint('🏋️ [TrainingsBloc] ✅ TOTAL _onAttendanceLoadRequested: ${totalStopwatch.elapsedMilliseconds}ms (sin jugadores)');
@@ -346,26 +320,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         return;
       }
 
-      // PASO 3: Cargar datos adicionales de jugadores
-      final step3Stopwatch = Stopwatch()..start();
-      final jugadorIds = attendanceData
-          .map((att) => att['idjugador'] as int)
-          .toSet()
-          .toList();
-
-      final jugadoresData = await _supabase
-          .from('tjugadores')
-          .select('id, dorsal, foto, idposicion')
-          .inFilter('id', jugadorIds);
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [3] Query tjugadores: ${step3Stopwatch.elapsedMilliseconds}ms (${jugadoresData.length} jugadores)');
-
-      // Crear mapa de datos de jugadores
-      final jugadoresMap = <int, Map<String, dynamic>>{};
-      for (final jug in jugadoresData) {
-        jugadoresMap[jug['id'] as int] = jug;
-      }
-
-      // Construir lista de jugadores y su asistencia
+      // Construir listas
       final players = <Map<String, dynamic>>[];
       final attendance = <int, bool>{};
       final selectedMotive = <int, int?>{};
@@ -375,26 +330,23 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
       int? idequipo;
 
       for (final att in attendanceData) {
-        final idJugador = att['idjugador'] as int;
+        final idJugador = att['id'] as int;
         idclub ??= att['idclub'] as int?;
         idequipo ??= att['idequipo'] as int?;
 
-        final jugadorExtra = jugadoresMap[idJugador];
-
         players.add({
           'id': idJugador,
-          'nombre': att['nombrejug']?.toString() ?? '',
+          'nombre': att['nombre']?.toString() ?? '',
           'apellidos': att['apellidos']?.toString() ?? '',
-          'dorsal': jugadorExtra?['dorsal']?.toString() ?? '',
-          'foto': jugadorExtra?['foto']?.toString() ?? '',
-          'idposicion': jugadorExtra?['idposicion'],
+          'dorsal': att['dorsal']?.toString() ?? '',
+          'foto': att['foto']?.toString() ?? '',
+          'idposicion': att['idposicion'],
         });
 
-        attendance[idJugador] = (att['asiste'] as int?) == 1;
+        attendance[idJugador] = att['asiste'] == true;
         selectedMotive[idJugador] = att['idmotivo'] as int?;
         observations[idJugador] = att['observaciones'] as String?;
       }
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ Procesamiento: ${processingStopwatch.elapsedMilliseconds}ms');
 
       debugPrint('🏋️ [TrainingsBloc] ✅ TOTAL _onAttendanceLoadRequested: ${totalStopwatch.elapsedMilliseconds}ms (${players.length} jugadores)');
 
@@ -428,7 +380,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
 
     newAttendance[event.idjugador] = event.presente;
 
-    // Guardar el motivo seleccionado (incluyendo Asiste = 1)
     if (event.idmotivo != null) {
       newSelectedMotive[event.idjugador] = event.idmotivo;
     }
@@ -455,28 +406,25 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     emit(currentState.copyWith(isSaving: true));
 
     try {
-      // Eliminar asistencia anterior (tabla: tentrenojugador)
-      await _supabase
-          .from('tentrenojugador')
-          .delete()
-          .eq('identrenamiento', event.identrenamiento);
-
-      // Insertar nueva asistencia
-      final inserts = <Map<String, dynamic>>[];
-      for (final entry in event.attendance.entries) {
-        inserts.add({
-          'identrenamiento': event.identrenamiento,
+      // Preparar datos de asistencia
+      final asistencia = event.attendance.entries.map((entry) {
+        return {
           'idjugador': entry.key,
-          'idequipo': currentState.idequipo,
-          'idclub': currentState.idclub,
-          'asiste': entry.value ? 1 : 0, // smallint: 1 = asiste, 0 = no asiste
-          'motivo': event.selectedMotive[entry.key], // Motivo de ausencia
+          'asiste': entry.value,
+          'idmotivo': event.selectedMotive[entry.key],
           'observaciones': event.observations[entry.key],
-        });
-      }
+        };
+      }).toList();
 
-      if (inserts.isNotEmpty) {
-        await _supabase.from('tentrenojugador').insert(inserts);
+      final response = await _datasource.saveAsistenciaEntrenamiento(
+        identrenamiento: event.identrenamiento,
+        idequipo: currentState.idequipo,
+        idclub: currentState.idclub,
+        asistencia: asistencia,
+      );
+
+      if (!response.success) {
+        throw Exception(response.message ?? 'Error al guardar asistencia');
       }
 
       debugPrint('🏋️ [TrainingsBloc] Asistencia guardada correctamente');
@@ -522,7 +470,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     return trainings.where((t) => t['idpauta'] == idtipo).toList();
   }
 
-  /// Cargar entrenamientos de todos los equipos de un club (para Club/Coordinador)
+  /// Cargar entrenamientos de todos los equipos de un club
   Future<void> _onLoadByClubRequested(
     TrainingsLoadByClubRequested event,
     Emitter<TrainingsState> emit,
@@ -532,7 +480,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     debugPrint('🏋️⏱️ [BLOC] idclub=${event.idclub}, temporada=${event.activeSeasonId}');
     emit(const TrainingsLoading());
 
-    // Si el idclub no es válido, emitir estado vacío
     if (event.idclub <= 0) {
       debugPrint('🏋️ [TrainingsBloc] ID de club inválido, emitiendo estado vacío');
       emit(TrainingsLoaded(
@@ -548,23 +495,19 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     }
 
     try {
-      // PASO 1: Obtener equipos del club filtrados por temporada usando la vista
-      debugPrint('🏋️⏱️ [BLOC] [1/4] INICIANDO Query vequipos...');
-      final step1Stopwatch = Stopwatch()..start();
-      final equiposData = await _supabase
-          .from('vequipos')
-          .select('id, equipo, ncorto, idcategoria')
-          .eq('idclub', event.idclub)
-          .eq('idtemporada', event.activeSeasonId);
-      step1Stopwatch.stop();
-      debugPrint('🏋️⏱️ [BLOC] [1/4] Query vequipos: ${step1Stopwatch.elapsedMilliseconds}ms (${equiposData.length} equipos)');
+      // Cargar equipos
+      final equiposResponse = await _datasource.getEquipos(
+        idclub: event.idclub,
+        idtemporada: event.activeSeasonId,
+      );
 
-      final equipoIds = (equiposData as List)
-          .map((e) => e['id'] as int)
-          .toList();
+      if (!equiposResponse.success || equiposResponse.data == null) {
+        throw Exception(equiposResponse.message ?? 'Error al cargar equipos');
+      }
 
-      if (equipoIds.isEmpty) {
-        debugPrint('🏋️ [TrainingsBloc] ⏱️ TOTAL (sin equipos): ${totalStopwatch.elapsedMilliseconds}ms');
+      final teams = equiposResponse.data!;
+
+      if (teams.isEmpty) {
         emit(TrainingsLoaded(
           trainings: [],
           filteredTrainings: [],
@@ -577,24 +520,17 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         return;
       }
 
-      // PASO 2: Obtener categorías
-      debugPrint('🏋️⏱️ [BLOC] [2/4] INICIANDO Query tcategorias...');
-      final step2Stopwatch = Stopwatch()..start();
-      final categoriasData = await _supabase
-          .from('tcategorias')
-          .select('id, categoria');
-      step2Stopwatch.stop();
-      debugPrint('🏋️⏱️ [BLOC] [2/4] Query tcategorias: ${step2Stopwatch.elapsedMilliseconds}ms');
-
-      // PASO 3: Procesar categorías y equipos (sin DB)
-      final step3Stopwatch = Stopwatch()..start();
+      // Cargar categorías
+      final categoriasResponse = await _datasource.getCategorias();
       final categoriasMap = <int, String>{};
-      for (final cat in categoriasData as List) {
-        categoriasMap[cat['id'] as int] = cat['categoria'] as String;
+      if (categoriasResponse.success && categoriasResponse.data != null) {
+        for (final cat in categoriasResponse.data!) {
+          categoriasMap[cat['id'] as int] = cat['categoria'] as String;
+        }
       }
 
-      // Construir lista de equipos enriquecida
-      final teams = equiposData.map((e) {
+      // Enriquecer equipos con categoría
+      final enrichedTeams = teams.map((e) {
         final idCategoria = e['idcategoria'] as int?;
         return {
           'id': e['id'],
@@ -603,39 +539,22 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
           'categoria': idCategoria != null ? categoriasMap[idCategoria] ?? '-' : '-',
         };
       }).toList();
-      step3Stopwatch.stop();
-      debugPrint('🏋️⏱️ [BLOC] [3/4] Procesar equipos (local): ${step3Stopwatch.elapsedMilliseconds}ms');
 
-      // PASO 4: Cargar entrenamientos de todos los equipos
-      debugPrint('🏋️⏱️ [BLOC] [4/4] INICIANDO Query ventrenamientos (inFilter con ${equipoIds.length} IDs)...');
-      final step4Stopwatch = Stopwatch()..start();
-      final trainingsData = await _supabase
-          .from('ventrenamientos')
-          .select('''
-            id,
-            fecha,
-            hinicio,
-            hfin,
-            idequipo,
-            nombre,
-            observaciones,
-            finalizado,
-            campo
-          ''')
-          .inFilter('idequipo', equipoIds)
-          .eq('idtemporada', event.activeSeasonId)
-          .order('fecha', ascending: true)
-          .order('hinicio', ascending: true);
-      step4Stopwatch.stop();
-      debugPrint('🏋️⏱️ [BLOC] [4/4] Query ventrenamientos: ${step4Stopwatch.elapsedMilliseconds}ms (${trainingsData.length} registros)');
+      // Cargar entrenamientos
+      final trainingsResponse = await _datasource.getEntrenamientosByClub(
+        idclub: event.idclub,
+        idtemporada: event.activeSeasonId,
+      );
 
-      // PASO 5: Procesar entrenamientos (sin DB)
-      final step5Stopwatch = Stopwatch()..start();
-      final trainings = (trainingsData as List<dynamic>).cast<Map<String, dynamic>>().toList();
+      if (!trainingsResponse.success || trainingsResponse.data == null) {
+        throw Exception(trainingsResponse.message ?? 'Error al cargar entrenamientos');
+      }
+
+      final trainings = trainingsResponse.data!;
 
       // Enriquecer entrenamientos con datos del equipo
       final equiposMap = <int, Map<String, dynamic>>{};
-      for (final equipo in teams) {
+      for (final equipo in enrichedTeams) {
         equiposMap[equipo['id'] as int] = equipo;
       }
 
@@ -649,13 +568,12 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         }
       }
 
-      // Calcular distribución por horarios
+      // Calcular distribuciones
       final trainingsByTimeSlot = <String, int>{'mañana': 0, 'tarde': 0};
       final trainingsByField = <String, int>{};
       final trainingsByTeam = <int, int>{};
 
       for (final training in trainings) {
-        // Clasificar por horario
         final hinicio = training['hinicio']?.toString() ?? '';
         if (hinicio.isNotEmpty) {
           final hora = int.tryParse(hinicio.split(':').first) ?? 12;
@@ -666,25 +584,17 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
           }
         }
 
-        // Clasificar por campo
         final campo = training['campo']?.toString() ?? 'Sin campo';
         trainingsByField[campo] = (trainingsByField[campo] ?? 0) + 1;
 
-        // Clasificar por equipo
         final idequipo = training['idequipo'] as int?;
         if (idequipo != null) {
           trainingsByTeam[idequipo] = (trainingsByTeam[idequipo] ?? 0) + 1;
         }
       }
-      step5Stopwatch.stop();
-      debugPrint('🏋️⏱️ [BLOC] [5/5] Procesar entrenamientos (local): ${step5Stopwatch.elapsedMilliseconds}ms');
 
       totalStopwatch.stop();
-      final dbTime = step1Stopwatch.elapsedMilliseconds + step2Stopwatch.elapsedMilliseconds + step4Stopwatch.elapsedMilliseconds;
-      final localTime = step3Stopwatch.elapsedMilliseconds + step5Stopwatch.elapsedMilliseconds;
       debugPrint('🏋️⏱️ [BLOC] ========== RESUMEN ==========');
-      debugPrint('🏋️⏱️ [BLOC] Tiempo DB: ${dbTime}ms');
-      debugPrint('🏋️⏱️ [BLOC] Tiempo Local: ${localTime}ms');
       debugPrint('🏋️⏱️ [BLOC] TOTAL: ${totalStopwatch.elapsedMilliseconds}ms');
       debugPrint('🏋️⏱️ [BLOC] ==============================');
 
@@ -692,7 +602,7 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         trainings: trainings,
         filteredTrainings: trainings,
         trainingTypes: {},
-        teams: teams,
+        teams: enrichedTeams,
         focusedWeek: DateTime.now(),
         isClubView: true,
         trainingsByTimeSlot: trainingsByTimeSlot,
@@ -700,17 +610,13 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
         trainingsByTeam: trainingsByTeam,
         activeSeasonId: event.activeSeasonId,
       ));
-
-      // NOTA: Las estadísticas de asistencia se cargan bajo demanda
-      // cuando el usuario cambia a la vista mensual que las necesita
-      // add(AttendanceStatsRequested(idclub: event.idclub, activeSeasonId: event.activeSeasonId));
     } catch (e) {
       debugPrint('🏋️ [TrainingsBloc] ❌ Error tras ${totalStopwatch.elapsedMilliseconds}ms: $e');
       emit(TrainingsError(message: e.toString()));
     }
   }
 
-  /// Cargar estadísticas de asistencia usando vista materializada (pre-calculada)
+  /// Cargar estadísticas de asistencia
   Future<void> _onAttendanceStatsRequested(
     AttendanceStatsRequested event,
     Emitter<TrainingsState> emit,
@@ -722,31 +628,17 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
     debugPrint('🏋️ [TrainingsBloc] ⏱️ [0] INICIO _onAttendanceStatsRequested');
 
     try {
-      // Construir query
-      final buildStopwatch = Stopwatch()..start();
-      final query = _supabase
-          .from('vm_asistencia_stats')
-          .select('idequipo, total, presentes')
-          .eq('idclub', event.idclub)
-          .eq('idtemporada', event.activeSeasonId);
-      buildStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [1] Build query: ${buildStopwatch.elapsedMilliseconds}ms');
+      final response = await _datasource.getEstadisticasAsistencia(
+        idclub: event.idclub,
+        idtemporada: event.activeSeasonId,
+      );
 
-      // Ejecutar query
-      final execStopwatch = Stopwatch()..start();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [2] Ejecutando query...');
-      final statsResponse = await query;
-      execStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [3] Query ejecutada: ${execStopwatch.elapsedMilliseconds}ms (${statsResponse.length} equipos)');
+      if (!response.success || response.data == null) {
+        throw Exception(response.message ?? 'Error al cargar estadísticas');
+      }
 
-      // Parsear respuesta
-      final parseStopwatch = Stopwatch()..start();
-      final statsList = statsResponse as List;
-      parseStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [4] Parseo a List: ${parseStopwatch.elapsedMilliseconds}ms');
+      final statsList = response.data!;
 
-      // Calcular estadísticas
-      final calcStopwatch = Stopwatch()..start();
       final attendanceByTeam = <int, double>{};
       double totalPresent = 0;
       int totalCount = 0;
@@ -765,17 +657,11 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
       final overallAttendance = totalCount > 0
           ? double.parse(((totalPresent / totalCount) * 100).toStringAsFixed(1))
           : 0.0;
-      calcStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [5] Cálculo estadísticas: ${calcStopwatch.elapsedMilliseconds}ms');
 
-      // Emitir estado
-      final emitStopwatch = Stopwatch()..start();
       emit(currentState.copyWith(
         attendanceByTeam: attendanceByTeam,
         overallAttendance: overallAttendance,
       ));
-      emitStopwatch.stop();
-      debugPrint('🏋️ [TrainingsBloc] ⏱️ [6] Emit estado: ${emitStopwatch.elapsedMilliseconds}ms');
 
       debugPrint('🏋️ [TrainingsBloc] ✅ TOTAL: ${totalStopwatch.elapsedMilliseconds}ms - Asistencia: $overallAttendance%');
     } catch (e) {
@@ -793,8 +679,6 @@ class TrainingsBloc extends Bloc<TrainingsEvent, TrainingsState> {
 
     emit(currentState.copyWith(viewMode: event.viewMode));
 
-    // Cargar estadísticas de asistencia solo cuando se cambia a vista mensual
-    // y no están ya cargadas
     if (event.viewMode == 'month' && currentState.attendanceByTeam.isEmpty) {
       add(AttendanceStatsRequested(
         idclub: currentState.trainings.first['idclub'] ?? 0,

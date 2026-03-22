@@ -32,11 +32,17 @@ class PlayersLoadRequested extends PlayersEvent {
 /// Evento para refrescar la lista de jugadores
 class PlayersRefreshRequested extends PlayersEvent {
   final int idequipo;
+  final int? idclub;
+  final int idtemporada;
 
-  const PlayersRefreshRequested({required this.idequipo});
+  const PlayersRefreshRequested({
+    required this.idequipo,
+    this.idclub,
+    required this.idtemporada,
+  });
 
   @override
-  List<Object?> get props => [idequipo];
+  List<Object?> get props => [idequipo, idclub, idtemporada];
 }
 
 /// Evento para buscar jugadores por nombre

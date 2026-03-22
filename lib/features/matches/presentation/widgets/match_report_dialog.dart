@@ -1,11 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/datasources/datasource_factory.dart';
+import '../../../../core/datasources/app_datasource.dart';
 
 /// Diálogo profesional con el informe completo del partido
 /// Diseño optimizado para web con layout de 2 columnas
@@ -24,6 +25,7 @@ class MatchReportDialog extends StatefulWidget {
 }
 
 class _MatchReportDialogState extends State<MatchReportDialog> {
+  final AppDataSource _dataSource = DataSourceFactory.instance;
   List<Map<String, dynamic>> _players = [];
   List<Map<String, dynamic>> _events = [];
   bool _isLoading = true;
@@ -40,29 +42,22 @@ class _MatchReportDialogState extends State<MatchReportDialog> {
     try {
       final idpartido = widget.match['id'] as int;
 
-      // Cargar jugadores convocados y eventos en paralelo
+      // Cargar jugadores convocados y eventos en paralelo usando el datasource
       final futures = await Future.wait([
-        Supabase.instance.client
-            .from('vpartidosjugadores')
-            .select('idjugador, titular, mentra, apodo, dorsal, posicion, foto, convocado, posx, posy')
-            .eq('idpartido', idpartido)
-            .eq('convocado', 1)
-            .order('titular', ascending: false)
-            .order('dorsal'),
-        Supabase.instance.client
-            .from('veventos')
-            .select('*')
-            .eq('idpartido', idpartido)
-            .order('minuto'),
+        _dataSource.getLineup(idpartido: idpartido),
+        _dataSource.getEventosPartido(idpartido: idpartido),
       ]);
 
       // Obtener URLs de camisetas desde el partido
       final camisetaUrl = widget.match['camiseta']?.toString();
       final camisetaPorteroUrl = widget.match['camisetapor']?.toString();
 
+      final lineupResponse = futures[0];
+      final eventsResponse = futures[1];
+
       setState(() {
-        _players = (futures[0] as List).cast<Map<String, dynamic>>();
-        _events = (futures[1] as List).cast<Map<String, dynamic>>();
+        _players = lineupResponse.success ? lineupResponse.data ?? [] : [];
+        _events = eventsResponse.success ? eventsResponse.data ?? [] : [];
         _camisetaUrl = camisetaUrl;
         _camisetaPorteroUrl = camisetaPorteroUrl;
         _isLoading = false;

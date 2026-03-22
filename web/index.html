@@ -18,19 +18,33 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="FutBase 3.0 - Gestión Deportiva">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="futbase_web_3">
+  <meta name="apple-mobile-web-app-title" content="FutBase">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>futbase_web_3</title>
+  <title>FutBase</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyACpS3zXdlDEFgZzIDuxyT6j4Wp57_Ephc",
+      authDomain: "futbase-17919.firebaseapp.com",
+      projectId: "futbase-17919",
+      storageBucket: "futbase-17919.appspot.com",
+      messagingSenderId: "65194175239",
+      appId: "1:65194175239:web:b9744ce4454c150d5d73a2"
+    });
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

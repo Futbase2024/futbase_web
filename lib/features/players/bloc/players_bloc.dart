@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:futbase_web_3/core/datasources/datasource_factory.dart';
+import 'package:futbase_web_3/core/datasources/app_datasource.dart';
 
 import 'players_event.dart';
 import 'players_state.dart';
@@ -8,10 +10,10 @@ import '../../dashboard/presentation/widgets/dashboard_sidebar.dart';
 
 /// BLoC para gestión de jugadores
 class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
-  final SupabaseClient _supabase;
+  final AppDataSource _dataSource;
 
-  PlayersBloc({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client,
+  PlayersBloc({AppDataSource? dataSource})
+      : _dataSource = dataSource ?? DataSourceFactory.instance,
         super(const PlayersInitial()) {
     on<PlayersLoadRequested>(_onLoadRequested);
     on<PlayersRefreshRequested>(_onRefreshRequested);
@@ -25,8 +27,6 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
   }
 
   /// Carga inicial de jugadores
-  /// Si loadByClub es true, carga todos los jugadores del club
-  /// Si loadByClub es false, carga los jugadores de un equipo específico
   Future<void> _onLoadRequested(
     PlayersLoadRequested event,
     Emitter<PlayersState> emit,
@@ -40,37 +40,35 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
       final queryStart = DateTime.now().millisecondsSinceEpoch;
       debugPrint('⏱️ [TIMING] 🌐 Iniciando queries (loadByClub=${event.loadByClub}, idclub=${event.idclub}, idequipo=${event.idequipo}): $queryStart ms');
 
-      // Usar la temporada activa del evento (viene del AppConfigCubit global)
       final activeSeasonId = event.activeSeasonId;
       debugPrint('⏱️ [TIMING] 🗓️ Temporada activa: $activeSeasonId');
 
-      // Cargar jugadores desde la vista vjugadores (une tjugadores + testadisticasjugador)
-      // Por defecto solo activos (activo = 1) y de la temporada activa
-      List<dynamic> jugadoresResponse;
+      List<Map<String, dynamic>> players = [];
+
       if (event.loadByClub && event.idclub != null) {
-        // Cargar todos los jugadores del club (solo activos y de la temporada activa)
-        jugadoresResponse = await _supabase
-            .from('vjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
-            .eq('idclub', event.idclub!)
-            .eq('activo', 1)
-            .eq('idtemporada', activeSeasonId)
-            .eq('visible', 1)
-            .order('nombre')
-            .order('apellidos');
+        // Cargar todos los jugadores del club
+        final response = await _dataSource.getJugadoresByClub(
+          idclub: event.idclub!,
+          idtemporada: activeSeasonId,
+          soloActivos: true,
+        );
+
+        if (response.success && response.data != null) {
+          players = response.data!;
+        }
       } else if (event.idequipo != null) {
-        // Cargar jugadores de un equipo específico (solo activos y de la temporada activa)
-        jugadoresResponse = await _supabase
-            .from('vjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
-            .eq('idequipo', event.idequipo!)
-            .eq('activo', 1)
-            .eq('idtemporada', activeSeasonId)
-            .eq('visible', 1)
-            .order('nombre')
-            .order('apellidos');
+        // Cargar jugadores de un equipo específico
+        // Pasar idclub y idtemporada para evitar consulta adicional al endpoint
+        final response = await _dataSource.getJugadoresEquipo(
+          idequipo: event.idequipo!,
+          idclub: event.idclub,
+          idtemporada: activeSeasonId,
+        );
+
+        if (response.success && response.data != null) {
+          players = response.data!;
+        }
       } else {
-        // Sin filtro válido
         emit(const PlayersError(
           message: 'No se especificó club ni equipo para cargar jugadores.',
         ));
@@ -78,31 +76,31 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
       }
 
       // Cargar posiciones
-      final positionsData = await _supabase.from('tposiciones').select('id, posicion');
+      final positionsResponse = await _dataSource.getPosiciones();
+      final positionsMap = <int, String>{};
+      if (positionsResponse.success && positionsResponse.data != null) {
+        for (final pos in positionsResponse.data!) {
+          positionsMap[pos['id'] as int] = pos['posicion'] as String;
+        }
+      }
 
       // Cargar equipos si es club/coordinador
       Map<int, String> teamsMap = {};
       if (event.loadByClub && event.idclub != null) {
-        final teamsData = await _supabase
-            .from('tequipos')
-            .select('id, equipo')
-            .eq('idclub', event.idclub!)
-            .order('equipo');
-        for (final team in teamsData) {
-          teamsMap[team['id'] as int] = team['equipo'] as String;
+        final teamsResponse = await _dataSource.getEquipos(
+          idclub: event.idclub!,
+          idtemporada: activeSeasonId,
+        );
+
+        if (teamsResponse.success && teamsResponse.data != null) {
+          for (final team in teamsResponse.data!) {
+            teamsMap[team['id'] as int] = team['equipo'] as String;
+          }
         }
       }
 
       final queryEnd = DateTime.now().millisecondsSinceEpoch;
       debugPrint('⏱️ [TIMING] 🌐 Queries COMPLETADAS: $queryEnd ms | ⚡ Duración: ${queryEnd - queryStart}ms');
-
-      // Crear mapa de posiciones
-      final positionsMap = <int, String>{};
-      for (final pos in positionsData) {
-        positionsMap[pos['id'] as int] = pos['posicion'] as String;
-      }
-
-      final players = jugadoresResponse.cast<Map<String, dynamic>>().toList();
 
       // Ordenar por nombre y apellidos (case-insensitive)
       _sortPlayers(players);
@@ -153,26 +151,29 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
     }
 
     try {
-      final results = await Future.wait([
-        _supabase
-            .from('tjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo')
-            .eq('idequipo', event.idequipo)
-            .order('dorsal')
-            .order('nombre')
-            .order('apellidos'),
-        _supabase.from('tposiciones').select('id, posicion'),
-      ]);
+      // Pasar idclub y idtemporada para evitar consulta adicional al endpoint
+      final playersResponse = await _dataSource.getJugadoresEquipo(
+        idequipo: event.idequipo,
+        idclub: event.idclub,
+        idtemporada: event.idtemporada,
+      );
+      final positionsResponse = await _dataSource.getPosiciones();
 
-      final playersData = results[0] as List<dynamic>;
-      final positionsData = results[1] as List<dynamic>;
-
-      final positionsMap = <int, String>{};
-      for (final pos in positionsData) {
-        positionsMap[pos['id'] as int] = pos['posicion'] as String;
+      if (!playersResponse.success || playersResponse.data == null) {
+        emit(PlayersError(message: playersResponse.message ?? 'Error al cargar'));
+        return;
       }
 
-      final players = playersData.cast<Map<String, dynamic>>().toList();
+      final playersData = playersResponse.data!;
+
+      final positionsMap = <int, String>{};
+      if (positionsResponse.success && positionsResponse.data != null) {
+        for (final pos in positionsResponse.data!) {
+          positionsMap[pos['id'] as int] = pos['posicion'] as String;
+        }
+      }
+
+      final players = playersData;
 
       // Ordenar por nombre y apellidos (case-insensitive)
       _sortPlayers(players);
@@ -309,7 +310,6 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
     PlayerSelected event,
     Emitter<PlayersState> emit,
   ) {
-    // Por ahora solo notifica, en el futuro puede navegar al detalle
     // La navegación se maneja en la UI
   }
 
@@ -331,45 +331,38 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
     final currentState = state;
     if (currentState is! PlayersLoaded) return;
 
-    // Recargar datos con el nuevo filtro
     final showInactive = event.showInactive;
     final activeSeasonId = event.activeSeasonId;
 
     try {
-      List<dynamic> jugadoresResponse;
+      List<Map<String, dynamic>> allPlayersList;
 
       // Determinar el filtro basado en el estado anterior
       final firstPlayer = currentState.players.isNotEmpty ? currentState.players.first : null;
 
       if (currentState.teams.isNotEmpty && firstPlayer != null) {
-        // Era carga por club - necesitamos el idclub
-        // Recargar desde vjugadores sin filtro de activo, pero con temporada
-        final allPlayers = await _supabase
-            .from('vjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
-            .eq('idclub', currentState.players.first['idclub'] ?? 0)
-            .eq('idtemporada', activeSeasonId)
-            .eq('visible', 1)
-            .order('nombre')
-            .order('apellidos');
-        jugadoresResponse = allPlayers;
+        // Era carga por club
+        final response = await _dataSource.getJugadoresByClub(
+          idclub: firstPlayer['idclub'] ?? 0,
+          idtemporada: activeSeasonId,
+          soloActivos: false,
+        );
+
+        allPlayersList = response.success && response.data != null ? response.data! : [];
       } else if (currentState.players.isNotEmpty) {
-        // Era carga por equipo
-        final idequipo = currentState.players.first['idequipo'];
-        final allPlayers = await _supabase
-            .from('vjugadores')
-            .select('id, nombre, apellidos, dorsal, idposicion, fechanacimiento, foto, idequipo, activo, idclub')
-            .eq('idequipo', idequipo)
-            .eq('idtemporada', activeSeasonId)
-            .eq('visible', 1)
-            .order('nombre')
-            .order('apellidos');
-        jugadoresResponse = allPlayers;
+        // Era carga por equipo - usar getJugadoresEquipo con idclub e idtemporada
+        final firstPlayer = currentState.players.first;
+        final idequipo = firstPlayer['idequipo'];
+        final idclub = firstPlayer['idclub'];
+        final response = await _dataSource.getJugadoresEquipo(
+          idequipo: idequipo ?? 0,
+          idclub: idclub,
+          idtemporada: activeSeasonId,
+        );
+        allPlayersList = response.success && response.data != null ? response.data! : [];
       } else {
         return;
       }
-
-      final allPlayersList = jugadoresResponse.cast<Map<String, dynamic>>().toList();
 
       // Ordenar por nombre y apellidos (case-insensitive)
       _sortPlayers(allPlayersList);
@@ -378,8 +371,6 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
       final deduplicatedList = _deduplicatePlayers(allPlayersList);
 
       // Filtrar por activo según el toggle
-      // showInactive=false -> Solo activos (activo=1)
-      // showInactive=true -> Solo inactivos (activo=0)
       var filteredByActive = showInactive
           ? deduplicatedList.where((p) => p['activo'] == 0).toList()
           : deduplicatedList.where((p) => p['activo'] == 1).toList();
@@ -456,7 +447,6 @@ class PlayersBloc extends Bloc<PlayersEvent, PlayersState> {
   }
 
   /// Deduplica jugadores por nombre+apellidos (case-insensitive, ignorando espacios)
-  /// Mantiene solo el primer jugador encontrado para cada combinación de nombre+apellidos
   List<Map<String, dynamic>> _deduplicatePlayers(List<Map<String, dynamic>> players) {
     final seen = <String>{};
     final result = <Map<String, dynamic>>[];

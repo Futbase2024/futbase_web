@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import 'match_list_header.dart';
+import 'result_style.dart';
 
 /// Lista de resultados recientes con diseño de scorecard
 class RecentResultsList extends StatelessWidget {
@@ -27,28 +29,9 @@ class RecentResultsList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header de sección
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.analytics,
-                  size: 20,
-                  color: AppColors.primary,
-                ),
-                AppSpacing.hSpaceSm,
-                Text(
-                  'Resultados Recientes',
-                  style: AppTypography.h6.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
+        // Header de sección usando widget estandarizado
+        MatchListHeader.recentResults(
+          count: matches.isNotEmpty ? matches.length : null,
         ),
         AppSpacing.vSpaceMd,
 
@@ -134,31 +117,6 @@ class _ScoreCard extends StatelessWidget {
     final golesrival = _toInt(match['golesrival']);
     final fecha = _parseDate(match['fecha']);
 
-    // Calcular resultado
-    String resultText;
-    Color resultBgColor;
-    Color resultTextColor;
-
-    if (goles != null && golesrival != null) {
-      if (goles > golesrival) {
-        resultText = 'VICTORIA';
-        resultBgColor = const Color(0xFFEAF7EF);
-        resultTextColor = const Color(0xFF078830);
-      } else if (goles < golesrival) {
-        resultText = 'DERROTA';
-        resultBgColor = const Color(0xFFFEF2F2);
-        resultTextColor = AppColors.error;
-      } else {
-        resultText = 'EMPATE';
-        resultBgColor = AppColors.gray50;
-        resultTextColor = AppColors.gray500;
-      }
-    } else {
-      resultText = 'PENDIENTE';
-      resultBgColor = AppColors.gray50;
-      resultTextColor = AppColors.gray500;
-    }
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -188,21 +146,7 @@ class _ScoreCard extends StatelessWidget {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: resultBgColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      resultText,
-                      style: AppTypography.labelSmall.copyWith(
-                        color: resultTextColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
+                  _buildResultBadge(goles: goles, golesrival: golesrival),
                 ],
               ),
               const SizedBox(height: 16),
@@ -301,6 +245,48 @@ class _ScoreCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Badge de resultado usando ResultStyle para colores consistentes
+  Widget _buildResultBadge({
+    required int? goles,
+    required int? golesrival,
+  }) {
+    if (goles == null || golesrival == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.gray50,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          'PENDIENTE',
+          style: AppTypography.labelSmall.copyWith(
+            color: AppColors.gray500,
+            fontWeight: FontWeight.w700,
+            fontSize: 10,
+          ),
+        ),
+      );
+    }
+
+    final style = ResultStyle.fromScore(goles: goles, golesrival: golesrival);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: style.backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        style.text.toUpperCase(),
+        style: AppTypography.labelSmall.copyWith(
+          color: style.color,
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
         ),
       ),
     );

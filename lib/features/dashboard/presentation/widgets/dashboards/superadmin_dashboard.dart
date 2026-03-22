@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../../core/datasources/datasource_factory.dart';
+import '../../../../../core/datasources/app_datasource.dart';
+import '../../../../../core/datasources/api_response.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -14,7 +16,7 @@ class SuperAdminDashboard extends StatefulWidget {
 }
 
 class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final AppDataSource _dataSource = DataSourceFactory.instance;
 
   bool _isLoading = true;
   String? _error;
@@ -45,52 +47,43 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         _error = null;
       });
 
-      // Cargar estadísticas en paralelo
+      // Cargar estadísticas globales en paralelo
       final results = await Future.wait([
-        _supabase.from('tclubes').select('id'),
-        _supabase.from('tusuarios').select('id'),
-        _supabase.from('tequipos').select('id'),
-        _supabase.from('tjugadores').select('id'),
-        _supabase.from('tentrenamientos').select('id'),
-        _supabase.from('vpartido').select('id'),
-        _supabase.from('tcuotas').select('id'),
-        _supabase.from('tequipos').select('idcategoria'),
-        _supabase.from('tusuarios').select('permisos'),
+        _dataSource.getGlobalCountClubs(),
+        _dataSource.getGlobalCountUsuarios(),
+        _dataSource.getGlobalCountEquipos(),
+        _dataSource.getGlobalCountJugadores(),
+        _dataSource.getGlobalCountEntrenamientos(),
+        _dataSource.getGlobalCountPartidos(),
+        _dataSource.getGlobalCountCuotas(),
+        _dataSource.getEquiposPorCategoriaGlobal(),
+        _dataSource.getUsuariosPorPermisoGlobal(),
       ]);
 
+      final clubsResponse = results[0] as ApiResponse<int>;
+      final usuariosResponse = results[1] as ApiResponse<int>;
+      final equiposResponse = results[2] as ApiResponse<int>;
+      final jugadoresResponse = results[3] as ApiResponse<int>;
+      final entrenamientosResponse = results[4] as ApiResponse<int>;
+      final partidosResponse = results[5] as ApiResponse<int>;
+      final cuotasResponse = results[6] as ApiResponse<int>;
+      final equiposCategoriaResponse = results[7] as ApiResponse<List<Map<String, dynamic>>>;
+      final usuariosPermisoResponse = results[8] as ApiResponse<List<Map<String, dynamic>>>;
+
       setState(() {
-        _totalClubs = results[0].length;
-        _totalUsuarios = results[1].length;
-        _totalEquipos = results[2].length;
-        _totalJugadores = results[3].length;
-        _totalEntrenamientos = results[4].length;
-        _totalPartidos = results[5].length;
-        _totalCuotas = results[6].length;
-
-        // Procesar equipos por categoría
-        final equiposData = results[7] as List;
-        final categoriaCount = <int, int>{};
-        for (final item in equiposData) {
-          final cat = item['idcategoria'] as int? ?? 0;
-          categoriaCount[cat] = (categoriaCount[cat] ?? 0) + 1;
-        }
-        _equiposPorCategoria = categoriaCount.entries
-            .map((e) => {'categoria': e.key, 'total': e.value})
-            .toList()
-          ..sort((a, b) => (b['total'] as int).compareTo(a['total'] as int));
-
-        // Procesar usuarios por permiso
-        final usuariosData = results[8] as List;
-        final permisoCount = <int, int>{};
-        for (final item in usuariosData) {
-          final perm = item['permisos'] as int? ?? 0;
-          permisoCount[perm] = (permisoCount[perm] ?? 0) + 1;
-        }
-        _usuariosPorPermiso = permisoCount.entries
-            .map((e) => {'permiso': e.key, 'total': e.value})
-            .toList()
-          ..sort((a, b) => (b['total'] as int).compareTo(a['total'] as int));
-
+        _totalClubs = clubsResponse.success ? clubsResponse.data ?? 0 : 0;
+        _totalUsuarios = usuariosResponse.success ? usuariosResponse.data ?? 0 : 0;
+        _totalEquipos = equiposResponse.success ? equiposResponse.data ?? 0 : 0;
+        _totalJugadores = jugadoresResponse.success ? jugadoresResponse.data ?? 0 : 0;
+        _totalEntrenamientos = entrenamientosResponse.success ? entrenamientosResponse.data ?? 0 : 0;
+        _totalPartidos = partidosResponse.success ? partidosResponse.data ?? 0 : 0;
+        _totalCuotas = cuotasResponse.success ? cuotasResponse.data ?? 0 : 0;
+        _equiposPorCategoria = equiposCategoriaResponse.success
+            ? equiposCategoriaResponse.data ?? <Map<String, dynamic>>[]
+            : <Map<String, dynamic>>[];
+        _usuariosPorPermiso = usuariosPermisoResponse.success
+            ? usuariosPermisoResponse.data ?? <Map<String, dynamic>>[]
+            : <Map<String, dynamic>>[];
         _isLoading = false;
       });
     } catch (e) {

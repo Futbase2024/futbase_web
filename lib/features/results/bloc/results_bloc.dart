@@ -2,18 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:futbase_web_3/core/datasources/datasource_factory.dart';
+import 'package:futbase_web_3/core/datasources/app_datasource.dart';
 
 import 'results_event.dart';
 import 'results_state.dart';
 
 /// BLoC para gestión de resultados - Vista global semanal de todos los partidos
 class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
-  final SupabaseClient _supabase;
+  final AppDataSource _dataSource;
   Timer? _liveUpdateTimer;
 
-  ResultsBloc({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client,
+  ResultsBloc({AppDataSource? dataSource})
+      : _dataSource = dataSource ?? DataSourceFactory.instance,
         super(const ResultsInitial()) {
     on<ResultsLoadWeekRequested>(_onLoadWeekRequested);
     on<ResultsPreviousWeek>(_onPreviousWeek);
@@ -50,41 +52,19 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
 
     try {
       final weekEnd = weekStart.add(const Duration(days: 7));
-      final weekStartStr = weekStart.toIso8601String().split('T')[0];
-      final weekEndStr = weekEnd.toIso8601String().split('T')[0];
 
-      // Cargar TODOS los partidos de la temporada en el rango de fechas (sin filtro de club)
-      final matchesData = await _supabase
-          .from('vpartido')
-          .select('''
-            id,
-            idequipo,
-            idclub,
-            equipo,
-            ncortoequipo,
-            rival,
-            ncortorival,
-            fecha,
-            hora,
-            casafuera,
-            goles,
-            golesrival,
-            finalizado,
-            descanso,
-            minuto,
-            jornada,
-            escudo,
-            escudorival,
-            campo,
-            categoria
-          ''')
-          .eq('idtemporada', event.idtemporada)
-          .gte('fecha', weekStartStr)
-          .lt('fecha', weekEndStr)
-          .order('fecha', ascending: true)
-          .order('hora', ascending: true);
+      final response = await _dataSource.getPartidosByDateRange(
+        idtemporada: event.idtemporada,
+        startDate: weekStart,
+        endDate: weekEnd,
+      );
 
-      final matches = (matchesData as List).cast<Map<String, dynamic>>();
+      if (!response.success || response.data == null) {
+        emit(ResultsError(message: response.message ?? 'Error al cargar resultados'));
+        return;
+      }
+
+      final matches = response.data!;
 
       // Extraer equipos únicos
       final equipos = <int, String>{};

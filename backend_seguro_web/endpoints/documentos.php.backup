@@ -1,0 +1,170 @@
+<?php
+/**
+ * Endpoint de Documentos
+ * Gestión de documentos del club
+ */
+
+header('Content-Type: application/json; charset=utf-8');
+
+require_once __DIR__ . '/../core/Database.php';
+require_once __DIR__ . '/../core/CacheManager.php';
+require_once __DIR__ . '/../core/ResponseHelper.php';
+require_once __DIR__ . '/../middleware/FirebaseAuthMiddleware.php';
+require_once __DIR__ . '/../config/cors.php';
+
+// Manejar OPTIONS para CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Inicializar dependencias
+$db = Database::getInstance();
+$cache = new CacheManager(300); // 5 minutos de caché
+$auth = new FirebaseAuthMiddleware();
+
+// Proteger endpoint con autenticación y rate limiting
+$userData = $auth->protect(100, 60); // 100 requests/min
+
+// Obtener acción
+$action = $_GET['action'] ?? '';
+
+// Enrutamiento de acciones
+try {
+    switch ($action) {
+        case 'getDocumentosPorClub':
+            getDocumentosPorClub($db, $cache, $userData);
+            break;
+
+        case 'getDocumentosPorEquipo':
+            getDocumentosPorEquipo($db, $cache, $userData);
+            break;
+
+        case 'getDocumentosPorUsuario':
+            getDocumentosPorUsuario($db, $cache, $userData);
+            break;
+
+        default:
+            respondError('Acción no válida', 400);
+    }
+} catch (Exception $e) {
+    error_log("Error in documentos.php: " . $e->getMessage());
+    respondInternalError('Error al procesar la solicitud');
+}
+
+/**
+ * Obtiene documentos por club y temporada
+ */
+function getDocumentosPorClub($db, $cache, $userData) {
+    $idClub = $_GET['idClub'] ?? null;
+    $idTemporada = $_GET['idTemporada'] ?? null;
+
+    if (!$idClub || !$idTemporada) {
+        respondError('idClub e idTemporada son requeridos', 400);
+    }
+
+    $cacheKey = "documentos_club_{$idClub}_temp_{$idTemporada}";
+
+    $documentos = $cache->remember($cacheKey, function() use ($db, $idClub, $idTemporada) {
+        // Obtener fechas de la temporada
+        $sqlTemp = "SELECT fechaini, fechafin FROM ttemporadas WHERE id = ? LIMIT 1";
+        $temporada = $db->selectOne($sqlTemp, [$idTemporada]);
+
+        if (!$temporada) {
+            return [];
+        }
+
+        $sql = "SELECT d.*, e.nombre as equipo
+                FROM tdocumentos d
+                LEFT JOIN tequipos e ON d.idequipo = e.id
+                WHERE d.idclub = ?
+                AND d.fechasubida BETWEEN ? AND ?
+                ORDER BY d.fechasubida DESC";
+
+        return $db->select($sql, [
+            $idClub,
+            $temporada['fechaini'],
+            $temporada['fechafin']
+        ]);
+    }, 300);
+
+    respondSuccess($documentos);
+}
+
+/**
+ * Obtiene documentos por equipo y temporada
+ */
+function getDocumentosPorEquipo($db, $cache, $userData) {
+    $idEquipo = $_GET['idEquipo'] ?? null;
+    $idTemporada = $_GET['idTemporada'] ?? null;
+
+    if (!$idEquipo || !$idTemporada) {
+        respondError('idEquipo e idTemporada son requeridos', 400);
+    }
+
+    $cacheKey = "documentos_equipo_{$idEquipo}_temp_{$idTemporada}";
+
+    $documentos = $cache->remember($cacheKey, function() use ($db, $idEquipo, $idTemporada) {
+        // Obtener fechas de la temporada
+        $sqlTemp = "SELECT fechaini, fechafin FROM ttemporadas WHERE id = ? LIMIT 1";
+        $temporada = $db->selectOne($sqlTemp, [$idTemporada]);
+
+        if (!$temporada) {
+            return [];
+        }
+
+        $sql = "SELECT d.*, e.nombre as equipo
+                FROM tdocumentos d
+                LEFT JOIN tequipos e ON d.idequipo = e.id
+                WHERE d.idequipo = ?
+                AND d.fechasubida BETWEEN ? AND ?
+                ORDER BY d.fechasubida DESC";
+
+        return $db->select($sql, [
+            $idEquipo,
+            $temporada['fechaini'],
+            $temporada['fechafin']
+        ]);
+    }, 300);
+
+    respondSuccess($documentos);
+}
+
+/**
+ * Obtiene documentos por usuario y temporada
+ */
+function getDocumentosPorUsuario($db, $cache, $userData) {
+    $idUsuario = $_GET['idUsuario'] ?? null;
+    $idTemporada = $_GET['idTemporada'] ?? null;
+
+    if (!$idUsuario || !$idTemporada) {
+        respondError('idUsuario e idTemporada son requeridos', 400);
+    }
+
+    $cacheKey = "documentos_usuario_{$idUsuario}_temp_{$idTemporada}";
+
+    $documentos = $cache->remember($cacheKey, function() use ($db, $idUsuario, $idTemporada) {
+        // Obtener fechas de la temporada
+        $sqlTemp = "SELECT fechaini, fechafin FROM ttemporadas WHERE id = ? LIMIT 1";
+        $temporada = $db->selectOne($sqlTemp, [$idTemporada]);
+
+        if (!$temporada) {
+            return [];
+        }
+
+        $sql = "SELECT d.*, e.nombre as equipo
+                FROM tdocumentos d
+                LEFT JOIN tequipos e ON d.idequipo = e.id
+                WHERE d.idusuario = ?
+                AND d.fechasubida BETWEEN ? AND ?
+                ORDER BY d.fechasubida DESC";
+
+        return $db->select($sql, [
+            $idUsuario,
+            $temporada['fechaini'],
+            $temporada['fechafin']
+        ]);
+    }, 300);
+
+    respondSuccess($documentos);
+}

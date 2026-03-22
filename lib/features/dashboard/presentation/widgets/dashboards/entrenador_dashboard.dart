@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:futbase_core_datasource/futbase_core_datasource.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../../../../core/datasources/datasource_factory.dart';
+import '../../../../../core/datasources/app_datasource.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -13,16 +14,18 @@ class EntrenadorDashboard extends StatefulWidget {
   const EntrenadorDashboard({
     super.key,
     required this.user,
+    this.idTemporada,
   });
 
   final UsuariosEntity user;
+  final int? idTemporada;
 
   @override
   State<EntrenadorDashboard> createState() => _EntrenadorDashboardState();
 }
 
 class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final AppDataSource _dataSource = DataSourceFactory.instance;
 
   bool _isLoading = true;
   String? _error;
@@ -97,30 +100,71 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
         return;
       }
 
-      // Obtener jugadores del equipo con posición
-      final jugadoresData = await _supabase
-          .from('tjugadores')
-          .select('id, nombre, apellidos, dorsal, idposicion')
-          .eq('idequipo', idequipo);
+      // Usar idTemporada del auth state (ya viene en el appUser de auth.php)
+      final idTemporada = widget.idTemporada ?? 0;
 
+      // Cargar datos en paralelo
+      // NOTA: Pasamos idclub e idtemporada a getJugadoresEquipo para evitar
+      // la llamada extra a getEquiposInfo que está fallando en el backend
+      final results = await Future.wait([
+        _dataSource.getJugadoresEquipo(
+          idequipo: idequipo,
+          idclub: widget.user.idclub,
+          idtemporada: idTemporada,
+        ),
+        _dataSource.getPosiciones(),
+        _dataSource.getEntrenamientos(idequipo: idequipo, idtemporada: idTemporada),
+        _dataSource.getPartidos(
+          idequipo: idequipo,
+          idtemporada: idTemporada,
+          idclub: widget.user.idclub,
+        ),
+        _dataSource.getEquiposInfo(ids: [idequipo]),
+      ]);
+
+      final jugadoresResponse = results[0];
+      final posicionesResponse = results[1];
+      final entrenamientosResponse = results[2];
+      final partidosResponse = results[3];
+      final equipoInfoResponse = results[4];
+
+      final jugadoresData = jugadoresResponse.success
+          ? jugadoresResponse.data ?? <Map<String, dynamic>>[]
+          : <Map<String, dynamic>>[];
+      final posicionesData = posicionesResponse.success
+          ? posicionesResponse.data ?? <Map<String, dynamic>>[]
+          : <Map<String, dynamic>>[];
+      final entrenamientosData = entrenamientosResponse.success
+          ? entrenamientosResponse.data ?? <Map<String, dynamic>>[]
+          : <Map<String, dynamic>>[];
+      final partidosData = partidosResponse.success
+          ? partidosResponse.data ?? <Map<String, dynamic>>[]
+          : <Map<String, dynamic>>[];
+
+      debugPrint('EntrenadorDashboard: idTemporada=$idTemporada, idequipo=$idequipo');
       debugPrint('EntrenadorDashboard: Jugadores encontrados: ${jugadoresData.length}');
+      debugPrint('EntrenadorDashboard: Entrenamientos response: success=${entrenamientosResponse.success}, length=${entrenamientosData.length}, error=${entrenamientosResponse.message}');
+      debugPrint('EntrenadorDashboard: Partidos response: success=${partidosResponse.success}, length=${partidosData.length}, error=${partidosResponse.message}');
 
-      // Obtener posiciones
-      final posicionesData = await _supabase
-          .from('tposiciones')
-          .select('id, posicion');
+      // Debug: mostrar estructura de un partido si hay datos
+      if (partidosData.isNotEmpty) {
+        debugPrint('EntrenadorDashboard: Sample partido keys: ${partidosData.first.keys.toList()}');
+        debugPrint('EntrenadorDashboard: Sample partido finalizado=${partidosData.first['finalizado']}');
+      }
 
-      debugPrint('EntrenadorDashboard: Posiciones encontradas: ${posicionesData.length}');
-
+      // Construir mapa de posiciones
       final posicionesMap = <int, String>{};
-      for (final pos in posicionesData as List) {
-        posicionesMap[pos['id'] as int] = pos['posicion'] as String;
+      for (final pos in posicionesData) {
+        final id = pos['id'] as int?;
+        final nombre = pos['posicion']?.toString();
+        if (id != null && nombre != null) {
+          posicionesMap[id] = nombre;
+        }
       }
 
       // Contar jugadores por posición
       final jugadoresPorPosicion = <String, int>{};
-      for (final jugador in jugadoresData as List) {
-        // Manejar idposicion que puede ser int, String o null
+      for (final jugador in jugadoresData) {
         final idposicionRaw = jugador['idposicion'];
         int? idposicion;
         if (idposicionRaw is int) {
@@ -131,80 +175,61 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
         final posicion = idposicion != null ? (posicionesMap[idposicion] ?? 'Sin posición') : 'Sin posición';
         jugadoresPorPosicion[posicion] = (jugadoresPorPosicion[posicion] ?? 0) + 1;
       }
-      debugPrint('EntrenadorDashboard: Jugadores por posición: $jugadoresPorPosicion');
-      debugPrint('EntrenadorDashboard: Mapa de posiciones: $posicionesMap');
 
-      // Obtener entrenamientos del mes
+      // Filtrar entrenamientos del mes
       final inicioMes = DateTime(DateTime.now().year, DateTime.now().month, 1);
-      final entrenamientosData = await _supabase
-          .from('tentrenamientos')
-          .select('id')
-          .eq('idequipo', idequipo)
-          .gte('fecha', inicioMes.toIso8601String());
-
-      // Obtener partidos desde la vista vpartido (incluye hora, campo, escudos, etc.)
-      final partidosData = await _supabase
-          .from('vpartido')
-          .select('id, fecha, hora, rival, goles, golesrival, finalizado, escudorival, casafuera, escudo, campo, equipo')
-          .eq('idequipo', idequipo)
-          .order('fecha');
+      final entrenamientosMes = entrenamientosData.where((e) {
+        final fechaStr = e['fecha']?.toString();
+        if (fechaStr == null) return false;
+        final fecha = DateTime.tryParse(fechaStr);
+        return fecha != null && fecha.isAfter(inicioMes);
+      }).length;
 
       // Obtener escudo y nombre del equipo local
       String escudoLocal = '';
-      String nombreEquipoLocal = '';
-      try {
-        final equipoData = await _supabase
-            .from('tequipos')
-            .select('idclub, equipo')
-            .eq('id', idequipo)
-            .single();
+      String nombreEquipoLocal = 'Mi Equipo';
 
+      if (equipoInfoResponse.success && (equipoInfoResponse.data?.isNotEmpty ?? false)) {
+        final equipoData = equipoInfoResponse.data!.first;
         nombreEquipoLocal = equipoData['equipo']?.toString() ?? 'Mi Equipo';
+      }
 
-        if (equipoData['idclub'] != null) {
-          final clubInfo = await _supabase
-              .from('tclubes')
-              .select('escudo')
-              .eq('id', equipoData['idclub'])
-              .single();
-          escudoLocal = clubInfo['escudo']?.toString() ?? '';
+      // Obtener escudo del club
+      try {
+        final clubResponse = await _dataSource.getClub(
+          idclub: widget.user.idclub,
+          idtemporada: idTemporada,
+        );
+        debugPrint('EntrenadorDashboard: Club response success=${clubResponse.success}, data=${clubResponse.data}');
+        if (clubResponse.success && clubResponse.data != null) {
+          escudoLocal = clubResponse.data!['escudo']?.toString() ?? '';
+          debugPrint('EntrenadorDashboard: Escudo obtenido: $escudoLocal');
         }
       } catch (e) {
         debugPrint('EntrenadorDashboard: Error obteniendo escudo local: $e');
       }
 
-      debugPrint('EntrenadorDashboard: Partidos encontrados: ${partidosData.length}');
-
-      // Clasificar partidos por estado de finalizado
-      // Solo los partidos FINALIZADOS (finalizado == 1 o true) se consideran para KPIs y gráficas
-      final jugados = (partidosData as List).where((p) {
+      // Clasificar partidos
+      final jugados = partidosData.where((p) {
         final finalizado = p['finalizado'];
-        // Un partido está "jugado" solo si está marcado como finalizado
         return finalizado == 1 || finalizado == true;
       }).toList();
 
-      // Partidos próximos: NO finalizados (finalizado == 0, false o null)
-      final proximos = (partidosData).where((p) {
+      final proximos = partidosData.where((p) {
         final finalizado = p['finalizado'];
-        // Un partido es "próximo" si NO está marcado como finalizado
-        final esNoFinalizado = finalizado == 0 || finalizado == false || finalizado == null;
-        return esNoFinalizado;
+        return finalizado == 0 || finalizado == false || finalizado == null;
       }).toList();
 
       debugPrint('EntrenadorDashboard: Partidos FINALIZADOS: ${jugados.length}, PRÓXIMOS: ${proximos.length}');
 
-      // Calcular estadísticas de partidos y goles
-      // Usar todos los partidos que ya pasaron y tienen goles registrados
+      // Calcular estadísticas de partidos
       int ganados = 0;
       int empatados = 0;
       int perdidos = 0;
       int golesFavor = 0;
       int golesContra = 0;
 
-      debugPrint('EntrenadorDashboard: Total partidos jugados: ${jugados.length}');
-
       for (final partido in jugados) {
-        // Manejar goles que pueden ser int, String o null
         final golesRaw = partido['goles'];
         final golesRivalRaw = partido['golesrival'];
 
@@ -223,9 +248,6 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
           golesRival = int.tryParse(golesRivalRaw.toString());
         }
 
-        debugPrint('EntrenadorDashboard: Partido golesRaw=$golesRaw, golesRivalRaw=$golesRivalRaw -> goles=$goles, golesRival=$golesRival');
-
-        // Solo contar partidos que tengan goles registrados (no null)
         if (goles != null && golesRival != null) {
           golesFavor += goles;
           golesContra += golesRival;
@@ -239,8 +261,6 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
           }
         }
       }
-
-      debugPrint('EntrenadorDashboard: Ganados:$ganados, Empatados:$empatados, Perdidos:$perdidos, Goles F:$golesFavor C:$golesContra');
 
       // Obtener estadísticas avanzadas
       int totalFaltasFavor = 0;
@@ -259,30 +279,21 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
       int totalOcasionesContra = 0;
 
       try {
-        // Usar solo los partidos finalizados para las estadísticas
-        final partidosIds = jugados
-            .map((p) => p['id'] as int?)
-            .whereType<int>()
-            .toList();
+        // Cargar estadísticas avanzadas usando idequipo
+        final estadisticasResponse = await _dataSource.getEstadisticasPartido(idequipo: widget.user.idequipo);
 
-        debugPrint('EntrenadorDashboard: Cargando estadísticas para ${partidosIds.length} partidos finalizados');
+        debugPrint('EntrenadorDashboard: Estadisticas response: success=${estadisticasResponse.success}, error=${estadisticasResponse.message}');
+        if (estadisticasResponse.success && estadisticasResponse.data != null) {
+          debugPrint('EntrenadorDashboard: Estadisticas data length=${estadisticasResponse.data!.length}');
+          final estadisticasData = estadisticasResponse.data!;
 
-        if (partidosIds.isNotEmpty) {
-          final estadisticasData = await _supabase
-              .from('testadisticaspartido')
-              .select('faltaf, faltac, cornerf, cornerc, disparosf, disparosc, disparosfap, disparoscap, fjuegof, fjuegoc, llegadasf, llegadasc, ocasionesf, ocasionesc')
-              .inFilter('idpartido', partidosIds);
+          int toInt(dynamic value) {
+            if (value is int) return value;
+            if (value != null) return int.tryParse(value.toString()) ?? 0;
+            return 0;
+          }
 
-          debugPrint('EntrenadorDashboard: Encontradas ${estadisticasData.length} estadísticas');
-
-          for (final stat in estadisticasData as List) {
-            // Helper para convertir a int de forma segura
-            int toInt(dynamic value) {
-              if (value is int) return value;
-              if (value != null) return int.tryParse(value.toString()) ?? 0;
-              return 0;
-            }
-
+          for (final stat in estadisticasData) {
             totalFaltasFavor += toInt(stat['faltaf']);
             totalFaltasContra += toInt(stat['faltac']);
             totalCornersFavor += toInt(stat['cornerf']);
@@ -298,24 +309,14 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
             totalOcasionesFavor += toInt(stat['ocasionesf']);
             totalOcasionesContra += toInt(stat['ocasionesc']);
           }
-
-          debugPrint('EntrenadorDashboard: Disparos F:$totalDisparosFavor C:$totalDisparosContra, Corners F:$totalCornersFavor C:$totalCornersContra, Faltas F:$totalFaltasFavor C:$totalFaltasContra');
         }
       } catch (e) {
         debugPrint('EntrenadorDashboard: Error loading advanced stats: $e');
       }
 
-      debugPrint('EntrenadorDashboard: Asignando valores al estado...');
-      debugPrint('  - _totalJugadores: ${jugadoresData.length}');
-      debugPrint('  - _jugadoresPorPosicion: $jugadoresPorPosicion');
-      debugPrint('  - _partidosJugados: ${jugados.length}');
-      debugPrint('  - Ganados:$ganados, Empatados:$empatados, Perdidos:$perdidos');
-      debugPrint('  - Goles F:$golesFavor, C:$golesContra');
-      debugPrint('  - Próximos: ${proximos.length}');
-
       setState(() {
         _totalJugadores = jugadoresData.length;
-        _entrenamientosMes = entrenamientosData.length;
+        _entrenamientosMes = entrenamientosMes;
         _partidosJugados = jugados.length;
         _partidosGanados = ganados;
         _partidosEmpatados = empatados;
@@ -342,8 +343,6 @@ class _EntrenadorDashboardState extends State<EntrenadorDashboard> {
         _nombreEquipoLocal = nombreEquipoLocal;
         _isLoading = false;
       });
-
-      debugPrint('EntrenadorDashboard: Estado actualizado. _jugadoresPorPosicion=$_jugadoresPorPosicion');
     } catch (e) {
       debugPrint('Error loading Entrenador dashboard: $e');
       setState(() {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:futbase_core_datasource/futbase_core_datasource.dart';
+import '../../../../../core/datasources/datasource_factory.dart';
+import '../../../../../core/datasources/app_datasource.dart';
+import '../../../../../core/datasources/api_response.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -11,16 +13,18 @@ class CoordinadorDashboard extends StatefulWidget {
   const CoordinadorDashboard({
     super.key,
     required this.user,
+    this.idTemporada,
   });
 
   final UsuariosEntity user;
+  final int? idTemporada;
 
   @override
   State<CoordinadorDashboard> createState() => _CoordinadorDashboardState();
 }
 
 class _CoordinadorDashboardState extends State<CoordinadorDashboard> {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final AppDataSource _dataSource = DataSourceFactory.instance;
 
   bool _isLoading = true;
   String? _error;
@@ -58,76 +62,67 @@ class _CoordinadorDashboardState extends State<CoordinadorDashboard> {
         return;
       }
 
-      // Obtener nombre del club
-      final clubData = await _supabase
-          .from('tclubes')
-          .select('club')
-          .eq('id', idclub)
-          .maybeSingle();
+      // Usar idTemporada del auth state (ya viene en el appUser de auth.php)
+      final idTemporada = widget.idTemporada ?? 0;
 
-      // Obtener equipos del club
-      final equiposData = await _supabase
-          .from('tequipos')
-          .select('id, equipo, idcategoria')
-          .eq('idclub', idclub)
-          .order('idcategoria');
+      // Cargar datos en paralelo
+      final results = await Future.wait([
+        _dataSource.getClub(idclub: idclub),
+        _dataSource.getEquipos(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getJugadoresByClub(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getEntrenadoresByClub(idclub: idclub),
+        _dataSource.getEntrenamientosByClub(idclub: idclub, idtemporada: idTemporada),
+        _dataSource.getPartidosByClub(idclub: idclub, idtemporada: idTemporada),
+      ]);
 
-      final equipoIds = (equiposData as List)
-          .map((e) => e['id'] as int)
-          .toList();
+      final clubResponse = results[0] as ApiResponse<Map<String, dynamic>>;
+      final equiposResponse = results[1] as ApiResponse<List<Map<String, dynamic>>>;
+      final jugadoresResponse = results[2] as ApiResponse<List<Map<String, dynamic>>>;
+      final entrenadoresResponse = results[3] as ApiResponse<List<Map<String, dynamic>>>;
+      final entrenamientosResponse = results[4] as ApiResponse<List<Map<String, dynamic>>>;
+      final partidosResponse = results[5] as ApiResponse<List<Map<String, dynamic>>>;
 
-      // Contar jugadores
-      int totalJugadores = 0;
-      if (equipoIds.isNotEmpty) {
-        final jugadoresData = await _supabase
-            .from('tjugadores')
-            .select('id')
-            .inFilter('idequipo', equipoIds);
-        totalJugadores = jugadoresData.length;
-      }
-
-      // Contar entrenadores del club
-      final entrenadoresData = await _supabase
-          .from('tusuarios')
-          .select('id')
-          .eq('idclub', idclub)
-          .inFilter('permisos', [2, 9]); // Entrenadores y coordinadores
+      // Procesar equipos
+      final equiposData = equiposResponse.success
+          ? equiposResponse.data ?? <Map<String, dynamic>>[]
+          : <Map<String, dynamic>>[];
 
       // Contar entrenamientos de la semana
-      int entrenamientosSemana = 0;
-      if (equipoIds.isNotEmpty) {
-        final hace7Dias = DateTime.now().subtract(const Duration(days: 7));
-        final entrenamientosData = await _supabase
-            .from('tentrenamientos')
-            .select('id')
-            .inFilter('idequipo', equipoIds)
-            .gte('fecha', hace7Dias.toIso8601String());
-        entrenamientosSemana = entrenamientosData.length;
-      }
+      final hace7Dias = DateTime.now().subtract(const Duration(days: 7));
+      final entrenamientosSemana = entrenamientosResponse.success
+          ? (entrenamientosResponse.data ?? <Map<String, dynamic>>[]).where((e) {
+              final fechaStr = e['fecha']?.toString();
+              if (fechaStr == null) return false;
+              final fecha = DateTime.tryParse(fechaStr);
+              return fecha != null && fecha.isAfter(hace7Dias);
+            }).length
+          : 0;
 
       // Contar partidos próximos
-      int partidosProximos = 0;
-      if (equipoIds.isNotEmpty) {
-        final partidosData = await _supabase
-            .from('vpartido')
-            .select('id, fecha')
-            .inFilter('idequipo', equipoIds);
-
-        final ahora = DateTime.now();
-        partidosProximos = (partidosData as List).where((p) {
-          final fecha = DateTime.tryParse(p['fecha']?.toString() ?? '');
-          return fecha != null && fecha.isAfter(ahora);
-        }).length;
-      }
+      final ahora = DateTime.now();
+      final partidosProximos = partidosResponse.success
+          ? (partidosResponse.data ?? <Map<String, dynamic>>[]).where((p) {
+              final fechaStr = p['fecha']?.toString();
+              if (fechaStr == null) return false;
+              final fecha = DateTime.tryParse(fechaStr);
+              return fecha != null && fecha.isAfter(ahora);
+            }).length
+          : 0;
 
       setState(() {
-        _clubName = clubData?['club'] ?? 'Club';
+        _clubName = clubResponse.success
+            ? (clubResponse.data?['club'] ?? clubResponse.data?['nombre'] ?? 'Club')?.toString() ?? 'Club'
+            : 'Club';
         _totalEquipos = equiposData.length;
-        _totalJugadores = totalJugadores;
-        _totalEntrenadores = entrenadoresData.length;
+        _totalJugadores = jugadoresResponse.success
+            ? (jugadoresResponse.data ?? <Map<String, dynamic>>[]).length
+            : 0;
+        _totalEntrenadores = entrenadoresResponse.success
+            ? (entrenadoresResponse.data ?? <Map<String, dynamic>>[]).length
+            : 0;
         _entrenamientosSemana = entrenamientosSemana;
         _partidosProximos = partidosProximos;
-        _equipos = List<Map<String, dynamic>>.from(equiposData);
+        _equipos = equiposData;
         _isLoading = false;
       });
     } catch (e) {

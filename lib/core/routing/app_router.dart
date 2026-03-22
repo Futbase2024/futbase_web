@@ -6,6 +6,7 @@ import '../../features/landing/presentation/pages/landing_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/results/presentation/pages/results_page.dart';
+import '../../features/fees/presentation/pages/fees_page.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/bloc/auth_state.dart';
 
@@ -24,6 +25,7 @@ class AppRouter {
   static const String trainings = '/trainings';
   static const String matches = '/matches';
   static const String results = '/results';
+  static const String fees = '/fees';
 
   // ========== RUTAS PÚBLICAS ==========
   static const List<String> publicRoutes = [
@@ -105,6 +107,16 @@ class AppRouter {
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             child: const ResultsPage(),
+          ),
+        ),
+
+        // ========== FEES (PROTEGIDO) ==========
+        GoRoute(
+          path: fees,
+          name: 'fees',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const FeesPage(),
           ),
         ),
 
